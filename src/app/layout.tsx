@@ -14,7 +14,7 @@ import { Toaster } from "sonner";
 import { TRPCReactProvider } from "~/trpc/react";
 import { Providers } from "./providers";
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://wirecraft.dev";
+const SITE_URL = process.env.NEXTAUTH_URL!;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
