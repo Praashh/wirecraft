@@ -1,4 +1,4 @@
-import Groq from "groq-sdk";
+import { getLLMProvider } from "./llm";
 import { CATALOG } from "./catalog";
 import { BOARDS, BOARD_ORDER } from "./boards";
 import type { Behavior, BoardId, BuildResult, ParsedIntent } from "./types";
@@ -97,31 +97,17 @@ function validateIntent(raw: RawAIResponse, preferredBoard?: BoardId): ParsedInt
   };
 }
 
-let _groq: Groq | null = null;
-
-function getGroq(): Groq {
-  const key = process.env.GROQ_API_KEY;
-  if (!key) {
-    throw new Error(
-      "GROQ_API_KEY is not set. Wirecraft requires AI to design hardware projects. " +
-      "Get a free key at https://console.groq.com/keys and add it to your .env file.",
-    );
-  }
-  if (!_groq) _groq = new Groq({ apiKey: key });
-  return _groq;
-}
-
 export async function aiParsePrompt(
   prompt: string,
   preferredBoard?: BoardId,
 ): Promise<ParsedIntent> {
-  const groq = getGroq();
+  const provider = getLLMProvider();
 
   const userMessage = preferredBoard
     ? `${prompt}\n\n(User prefers the ${BOARDS[preferredBoard].label} board.)`
     : prompt;
 
-  const chat = await groq.chat.completions.create({
+  const result = await provider.chatCompletion({
     model: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
@@ -132,12 +118,11 @@ export async function aiParsePrompt(
     response_format: { type: "json_object" },
   });
 
-  const text = chat.choices[0]?.message?.content?.trim();
-  if (!text) {
+  if (!result.content) {
     throw new Error("AI returned an empty response. Please try rephrasing your idea.");
   }
 
-  const raw = JSON.parse(text) as RawAIResponse;
+  const raw = JSON.parse(result.content) as RawAIResponse;
   return validateIntent(raw, preferredBoard);
 }
 
@@ -145,9 +130,9 @@ export async function aiAssistantReply(
   prompt: string,
   result: BuildResult,
 ): Promise<string> {
-  const groq = getGroq();
+  const provider = getLLMProvider();
 
-  const chat = await groq.chat.completions.create({
+  const completion = await provider.chatCompletion({
     model: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
     messages: [
       {
@@ -169,9 +154,8 @@ Write a short, friendly reply (max 100 words) presenting the build. Use **bold**
     max_tokens: 300,
   });
 
-  const reply = chat.choices[0]?.message?.content?.trim();
-  if (!reply) {
+  if (!completion.content) {
     throw new Error("AI returned an empty assistant reply.");
   }
-  return reply;
+  return completion.content;
 }

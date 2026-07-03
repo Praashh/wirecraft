@@ -1,5 +1,5 @@
 import { BOARDS } from "./boards";
-import { byId } from "./catalog";
+import { ComponentFactory } from "./ComponentFactory";
 import type {
   AllocatedPin,
   BoardId,
@@ -19,8 +19,7 @@ export function allocate(boardId: BoardId, componentIds: string[]): AllocationRe
   const warnings: string[] = [];
   const components: PlacedComponent[] = [];
   const wires: WireRun[] = [];
-
-  const counts = new Map<string, number>();
+  const factory = new ComponentFactory();
 
   const take = (kinds: ("digital" | "pwm" | "analog")[]): string | null => {
     for (const kind of kinds) {
@@ -36,15 +35,7 @@ export function allocate(boardId: BoardId, componentIds: string[]): AllocationRe
   };
 
   for (const id of componentIds) {
-    const comp = byId(id);
-    const n = (counts.get(id) ?? 0) + 1;
-    counts.set(id, n);
-    const base = comp.shortName
-      .split(/[^A-Za-z0-9]+/)
-      .filter(Boolean)
-      .map((w) => w[0]!.toUpperCase() + w.slice(1))
-      .join("");
-    const refName = `${base}${n > 1 ? `_${n}` : ""}`;
+    const comp = factory.getCatalogComponent(id);
 
     const pins: AllocatedPin[] = [];
     let ok = true;
@@ -104,21 +95,11 @@ export function allocate(boardId: BoardId, componentIds: string[]): AllocationRe
       pins.push({ ...pin, boardPin });
     }
 
-    if (!ok) {
-      counts.set(id, n - 1);
-      continue;
-    }
+    if (!ok) continue;
 
-    components.push({ component: comp, instance: n, refName, pins });
-    for (const pin of pins) {
-      wires.push({
-        fromBoardPin: pin.boardPin,
-        toComponent: refName,
-        toPin: pin.name,
-        color: pin.color,
-        kind: pin.kind,
-      });
-    }
+    const { placed, wires: componentWires } = factory.createPlacedComponent(id, comp, pins);
+    components.push(placed);
+    wires.push(...componentWires);
   }
 
   return { components, wires, warnings };
