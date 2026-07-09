@@ -9,18 +9,23 @@ const LINKS = [
   { href: "/guides", label: "Guides" },
   { href: "/parts", label: "Parts" },
   { href: "/blog", label: "Blog" },
-  { href: "/company", label: "About" },
+  { href: "/about", label: "About" },
 ];
 
 export function Banner() {
   return (
-    <Link
-      href="/blog"
-      className="block bg-ink px-4 py-2 text-center font-mono text-xs text-white transition hover:bg-primary"
-    >
-      <span className="text-wire-yellow">v1.0</span> Wirecraft is now open on the workbench — firmware, wiring and build steps from a single prompt
-      <span className="ml-2 inline-block rounded-pill bg-white/15 px-2 py-0.5">Read the announcement →</span>
-    </Link>
+    <div className="flex flex-wrap items-center justify-center gap-x-3.5 gap-y-1.5 bg-ink px-6 py-2.5 text-center font-mono text-xs text-board">
+      <span className="text-wire-yellow font-bold">v1.0</span>
+      <span className="opacity-85">
+        Wirecraft is now open on the workbench — firmware, wiring and build steps from a single prompt
+      </span>
+      <Link
+        href="/blog"
+        className="rounded-pill border border-[#4A463C] px-3 py-1 text-[11px] text-board transition hover:border-wire-yellow hover:text-wire-yellow"
+      >
+        Read the announcement →
+      </Link>
+    </div>
   );
 }
 
@@ -30,43 +35,43 @@ export function Nav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-board/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
         <Link href="/" aria-label="Wirecraft home">
           <Wordmark />
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-8 md:flex" aria-label="Primary">
           {LINKS.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className="rounded-pill px-3.5 py-2 font-display text-sm font-medium text-muted transition hover:bg-surface hover:text-ink"
+              className="font-display text-sm font-medium text-ink transition hover:text-primary"
             >
               {l.label}
             </Link>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-3 md:flex">
           {session ? (
             <>
               <span className="font-mono text-xs text-muted">{session.user.email}</span>
-              <button onClick={() => void signOut({ callbackUrl: "/" })} className="btn-ghost">
+              <button onClick={() => void signOut({ callbackUrl: "/" })} className="btn-ghost !px-5 !py-2.5 text-sm font-semibold">
                 Sign out
               </button>
             </>
           ) : (
-            <Link href="/signin" className="btn-ghost">
+            <Link href="/signin" className="btn-ghost !px-5 !py-2.5 text-sm font-semibold">
               Sign in
             </Link>
           )}
-          <Link href="/app" className="btn-primary">
+          <Link href="/app" className="btn-primary !px-5 !py-2.5 text-sm font-semibold">
             Open the workbench
           </Link>
         </div>
 
         <button
-          className="btn-ghost md:hidden"
+          className="btn-ghost md:hidden !px-3.5 !py-1.5"
           aria-expanded={open}
           aria-label="Toggle menu"
           onClick={() => setOpen((v) => !v)}
@@ -74,6 +79,7 @@ export function Nav() {
           {open ? "Close" : "Menu"}
         </button>
       </div>
+
 
       {open && (
         <nav className="border-t border-line bg-surface px-4 py-3 md:hidden" aria-label="Mobile">

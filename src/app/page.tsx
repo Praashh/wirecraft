@@ -8,7 +8,7 @@ import { Footer } from "~/components/landing/Footer";
 export default function HomePage() {
   return (
     <>
-      <Banner />
+      {/* <Banner /> */}
       <Nav />
       <main>
         <Hero />

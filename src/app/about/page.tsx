@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function CompanyPage() {
+export default function AboutPage() {
   return (
     <>
       <Nav />
@@ -41,16 +41,7 @@ export default function CompanyPage() {
           </p>
         </div>
 
-        <section id="jobs" className="card mt-10 p-6">
-          <h2 className="font-display text-xl font-bold">Jobs</h2>
-          <p className="mt-2 text-sm text-muted">
-            Wirecraft is a community project rather than a company — the &ldquo;openings&rdquo; are
-            good first issues. Extending the component catalog, adding a new board profile, or
-            improving the diagram layout are all welcome contributions.
-          </p>
-        </section>
-
-        <section id="privacy" className="card mt-4 p-6">
+        <section id="privacy" className="card mt-10 p-6">
           <h2 className="font-display text-xl font-bold">Privacy</h2>
           <p className="mt-2 text-sm text-muted">
             Self-hosted Wirecraft sends nothing anywhere. Prompts, projects and accounts stay in

@@ -186,7 +186,7 @@ export function WiringDiagram({ result }: { result: BuildResult }) {
   }, [initialNodes, initialEdges, setNodes, setEdges]);
 
   return (
-    <div className="h-full w-full" style={{ background: "#F2F1EC" }}>
+    <div className="relative h-full w-full" style={{ background: "#F7F3EA" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

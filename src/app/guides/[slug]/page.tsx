@@ -69,7 +69,7 @@ export default async function GuidePage({ params }: { params: { slug: string } }
         </div>
 
         <Section title="Wiring">
-          <div className="card overflow-hidden">
+          <div className="card overflow-hidden h-[400px] sm:h-[480px]">
             <WiringDiagram result={result} />
           </div>
         </Section>

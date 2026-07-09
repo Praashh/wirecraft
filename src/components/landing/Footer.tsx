@@ -27,33 +27,43 @@ const COLS: { title: string; links: { href: string; label: string }[] }[] = [
     ],
   },
   {
-    title: "Company",
+    title: "Project",
     links: [
-      { href: "/company", label: "About" },
-      { href: "/company#jobs", label: "Jobs" },
-      { href: "/company#privacy", label: "Privacy" },
+      { href: "/about", label: "About" },
+      { href: "/about#privacy", label: "Privacy" },
     ],
   },
 ];
 
 export function Footer() {
   return (
-    <footer className="border-t border-line bg-surface">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <div className="grid gap-10 md:grid-cols-[1.2fr_repeat(4,1fr)]">
+    <footer className="bg-ink text-board py-20 px-4 sm:px-6 md:px-14">
+      <div className="mx-auto max-w-6xl">
+        <div className="grid gap-12 sm:grid-cols-2 md:grid-cols-[1.4fr_repeat(4,1fr)] mb-20">
           <div>
-            <Wordmark />
-            <p className="mt-4 max-w-[24ch] text-sm text-muted">
+            <div className="flex items-center gap-3 mb-5">
+              {/* Logo block customized for dark footer background */}
+              <div className="grid place-items-center bg-wire-yellow text-ink rounded-lg font-display font-bold text-lg w-[34px] h-[34px]">
+                W
+              </div>
+              <span className="font-display text-xl font-bold tracking-tight text-board">wirecraft</span>
+            </div>
+            <p className="max-w-[260px] text-sm leading-relaxed text-[#A29A83]">
               Built on the kitchen table. For everyone with a drawer full of jumper wires.
             </p>
           </div>
           {COLS.map((col) => (
-            <nav key={col.title} aria-label={col.title}>
-              <h3 className="eyebrow">{col.title}</h3>
-              <ul className="mt-3 space-y-2">
+            <nav key={col.title} aria-label={col.title} className="flex flex-col gap-4.5">
+              <h3 className="font-mono text-xs uppercase tracking-[0.18em] text-[#7A745F]">
+                {col.title}
+              </h3>
+              <ul className="space-y-3.5">
                 {col.links.map((l) => (
                   <li key={l.label}>
-                    <Link href={l.href} className="text-sm text-ink transition hover:text-primary">
+                    <Link
+                      href={l.href}
+                      className="text-sm text-[#D9D2BF] transition hover:text-wire-yellow"
+                    >
                       {l.label}
                     </Link>
                   </li>
@@ -63,13 +73,23 @@ export function Footer() {
           ))}
         </div>
 
-        <p className="wire-underline mt-16 inline-block font-display text-5xl font-bold leading-[1.02] tracking-tight sm:text-7xl">
-          solder less.
-          <br />
-          build more.
-        </p>
+        {/* Large Slogan Section */}
+        <div className="mb-16">
+          <div className="font-display text-[56px] font-bold leading-[1.02] tracking-[-0.035em] sm:text-[96px] text-board">
+            solder less.
+            <br />
+            build more.
+          </div>
+          <div className="mt-6 flex h-[6px] w-full max-w-[560px] overflow-hidden rounded-[3px]">
+            <div className="flex-1 bg-wire-red" />
+            <div className="flex-1 bg-wire-yellow" />
+            <div className="flex-1 bg-wire-green" />
+            <div className="flex-1 bg-wire-blue" />
+          </div>
+        </div>
 
-        <div className="mt-10 flex flex-col justify-between gap-2 border-t border-line pt-6 font-mono text-xs text-muted sm:flex-row">
+        {/* Bottom copyright segment */}
+        <div className="flex flex-col justify-between gap-4 border-t border-[#33302A] pt-7 font-mono text-[13px] text-[#7A745F] sm:flex-row">
           <span>© {new Date().getFullYear()} Wirecraft — MIT licensed, fork away</span>
           <span>No cloud required · No paid APIs · Your bench, your rules</span>
         </div>

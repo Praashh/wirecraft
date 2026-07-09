@@ -1,24 +1,32 @@
 export function Steps() {
   return (
-    <section className="border-y border-line bg-surface">
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <p className="eyebrow">How it works</p>
-        <h2 className="mt-2 max-w-[22ch] font-display text-3xl font-bold tracking-tight sm:text-4xl">
+    <section className="border-t border-line bg-board py-20 px-4 sm:px-6 md:px-14">
+      <div className="mx-auto max-w-6xl">
+        <p className="font-mono text-[13px] font-semibold uppercase tracking-[0.18em] text-[#2C8C54] mb-3">
+          How it works
+        </p>
+        <h2 className="font-display text-[32px] font-bold tracking-tight text-ink sm:text-[48px] leading-tight mb-12 max-w-[640px]">
           Three steps between an idea and a blinking LED
         </h2>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-3">
           <StepCard
+            num="01"
+            numColor="text-primary"
             n="Describe"
             body="Say it in plain language — no datasheets, no pinout tables. The parser figures out the parts, the board and the behavior."
             art={<DescribeArt />}
           />
           <StepCard
+            num="02"
+            numColor="text-wire-yellow"
             n="Review"
             body="Get complete firmware, a color-coded wiring diagram, a bill of materials and assembly steps. Everything is editable."
             art={<ReviewArt />}
           />
           <StepCard
+            num="03"
+            numColor="text-wire-green"
             n="Build"
             body="Export a ready-to-flash PlatformIO project, or copy the sketch into the Arduino IDE. Wire it up, upload, done."
             art={<BuildArt />}
@@ -29,13 +37,24 @@ export function Steps() {
   );
 }
 
-function StepCard({ n, body, art }: { n: string; body: string; art: React.ReactNode }) {
+interface StepCardProps {
+  num: string;
+  numColor: string;
+  n: string;
+  body: string;
+  art: React.ReactNode;
+}
+
+function StepCard({ num, numColor, n, body, art }: StepCardProps) {
   return (
-    <article className="card overflow-hidden">
-      <div className="aspect-[16/10] border-b border-line bg-board">{art}</div>
-      <div className="p-5">
-        <h3 className="font-display text-lg font-bold">{n}</h3>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted">{body}</p>
+    <article className="flex flex-col bg-surface border-[1.5px] border-line rounded-2xl overflow-hidden">
+      <div className="h-[190px] border-b border-line">{art}</div>
+      <div className="p-7">
+        <div className="flex items-baseline gap-3 mb-3">
+          <span className={`font-mono text-[13px] font-semibold ${numColor}`}>{num}</span>
+          <h3 className="font-display text-2xl font-bold tracking-tight">{n}</h3>
+        </div>
+        <p className="text-sm sm:text-[15px] leading-relaxed text-[#57523F]">{body}</p>
       </div>
     </article>
   );
@@ -43,73 +62,56 @@ function StepCard({ n, body, art }: { n: string; body: string; art: React.ReactN
 
 function DescribeArt() {
   return (
-    <svg viewBox="0 0 320 200" className="h-full w-full" aria-hidden>
-      <rect width="320" height="200" fill="#F2F1EC" />
-      <rect x="36" y="52" width="248" height="64" rx="14" fill="#fff" stroke="#E3E1D9" />
-      <text x="52" y="80" fontFamily="JetBrains Mono, monospace" fontSize="12" fill="#17191E">
-        make a plant waterer that
-      </text>
-      <text x="52" y="98" fontFamily="JetBrains Mono, monospace" fontSize="12" fill="#17191E">
-        pings me when soil is dry▊
-      </text>
-      <rect x="204" y="126" width="80" height="26" rx="13" fill="#17191E" />
-      <text x="218" y="143" fontFamily="Space Grotesk, sans-serif" fontSize="11" fill="#fff">
-        build it →
-      </text>
-      <circle cx="52" cy="152" r="4" fill="#E5484D" />
-      <circle cx="66" cy="152" r="4" fill="#F0B100" />
-      <circle cx="80" cy="152" r="4" fill="#2FA36B" />
-    </svg>
+    <div className="relative h-full w-full bg-dots p-7 flex flex-col justify-center gap-4">
+      <div className="bg-surface border border-ink rounded-lg p-4 font-mono text-[13px] sm:text-[14px] leading-relaxed text-ink shadow-sm">
+        make a plant waterer that pings me when soil is dry
+        <span className="inline-block w-2 h-4 bg-ink align-middle ml-1 animate-pulse" />
+      </div>
+      <div className="flex justify-end">
+        <span className="bg-ink text-board rounded-pill px-4 py-2 font-mono text-xs font-semibold">
+          build it →
+        </span>
+      </div>
+    </div>
   );
 }
 
 function ReviewArt() {
   return (
-    <svg viewBox="0 0 320 200" className="h-full w-full" aria-hidden>
-      <rect width="320" height="200" fill="#F2F1EC" />
-      {/* mini board */}
-      <rect x="30" y="60" width="72" height="96" rx="8" fill="#1D5C3F" />
-      {Array.from({ length: 7 }).map((_, i) => (
-        <g key={i}>
-          <circle cx="38" cy={72 + i * 12} r="2.4" fill="#F0B100" />
-          <circle cx="94" cy={72 + i * 12} r="2.4" fill="#F0B100" />
-        </g>
-      ))}
-      <rect x="48" y="92" width="36" height="32" rx="4" fill="#17191E" />
-      {/* component */}
-      <rect x="222" y="76" width="68" height="52" rx="8" fill="#fff" stroke="#E3E1D9" />
-      <circle cx="256" cy="102" r="14" fill="none" stroke="#2B4BF2" strokeWidth="3" />
-      {/* wires */}
-      <path d="M94 84 C 150 60, 190 66, 224 86" fill="none" stroke="#E5484D" strokeWidth="3.5" strokeLinecap="round" />
-      <path d="M94 108 C 150 96, 186 96, 224 102" fill="none" stroke="#2FA36B" strokeWidth="3.5" strokeLinecap="round" />
-      <path d="M94 132 C 150 140, 186 130, 224 116" fill="none" stroke="#17191E" strokeWidth="3.5" strokeLinecap="round" />
-      <text x="120" y="170" fontFamily="JetBrains Mono, monospace" fontSize="10" fill="#6B6E76">
+    <div className="relative h-full w-full bg-dots p-7 flex flex-col items-center justify-center gap-3.5">
+      <div className="flex items-center gap-0">
+        {/* mock board */}
+        <div className="w-[74px] h-[96px] bg-[#2C8C54] rounded-lg grid place-items-center shadow-sm">
+          <div className="w-[30px] h-[30px] bg-ink rounded" />
+        </div>
+        {/* mock lines */}
+        <div className="flex flex-col gap-3 px-1">
+          <div className="w-[90px] h-[3px] bg-wire-red rounded" />
+          <div className="w-[90px] h-[3px] bg-ink rounded" />
+          <div className="w-[90px] h-[3px] bg-wire-blue rounded" />
+        </div>
+        {/* mock component */}
+        <div className="w-[54px] h-[54px] bg-surface border border-ink rounded-lg grid place-items-center shadow-sm">
+          <div className="w-6 h-6 border-[3px] border-wire-blue rounded-full" />
+        </div>
+      </div>
+      <span className="font-mono text-xs text-muted">
         3 connections · 2 parts
-      </text>
-    </svg>
+      </span>
+    </div>
   );
 }
 
 function BuildArt() {
   return (
-    <svg viewBox="0 0 320 200" className="h-full w-full" aria-hidden>
-      <rect width="320" height="200" fill="#F2F1EC" />
-      <rect x="40" y="48" width="240" height="104" rx="10" fill="#17191E" />
-      <text x="56" y="76" fontFamily="JetBrains Mono, monospace" fontSize="11" fill="#2FA36B">
-        $ pio run --target upload
-      </text>
-      <text x="56" y="96" fontFamily="JetBrains Mono, monospace" fontSize="11" fill="#B9BCC4">
-        Compiling main.cpp ... done
-      </text>
-      <text x="56" y="116" fontFamily="JetBrains Mono, monospace" fontSize="11" fill="#B9BCC4">
-        Flashing over USB ... done
-      </text>
-      <text x="56" y="136" fontFamily="JetBrains Mono, monospace" fontSize="11" fill="#F0B100">
-        ✓ Plant Waterer ready.
-      </text>
-      <circle cx="268" cy="64" r="5" fill="#2FA36B">
-        <animate attributeName="opacity" values="1;0.2;1" dur="1.4s" repeatCount="indefinite" />
-      </circle>
-    </svg>
+    <div className="relative h-full w-full bg-dots p-7 flex items-center justify-center">
+      <div className="w-full bg-ink rounded-lg p-4 font-mono text-xs leading-relaxed text-board shadow-sm">
+        <div className="text-wire-yellow">$ pio run --target upload</div>
+        <div className="text-[#8A8471]">Compiling main.cpp ... done</div>
+        <div className="text-[#8A8471]">Flashing over USB ... done</div>
+        <div className="text-[#4FBF7E]">✓ Plant Waterer ready.</div>
+      </div>
+    </div>
   );
 }
+

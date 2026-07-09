@@ -31,33 +31,51 @@ export function Hero() {
   };
 
   return (
-    <section className="relative overflow-hidden bg-dots bg-dots">
-      <div className="mx-auto max-w-3xl px-4 pb-16 pt-14 text-center sm:px-6 sm:pt-20">
-        <div className="mb-6 flex flex-wrap items-center justify-center gap-2" role="tablist" aria-label="Choose your board">
+    <section className="relative overflow-hidden bg-dots px-4 pb-24 pt-20 text-center sm:px-6">
+      <div className="mx-auto max-w-3xl flex flex-col items-center">
+        {/* Board Tablist */}
+        <div className="mb-10 flex flex-wrap items-center justify-center gap-2.5" role="tablist" aria-label="Choose your board">
           {BOARD_ORDER.map((id) => (
             <button
               key={id}
               role="tab"
               aria-selected={board === id}
               onClick={() => setBoard(id)}
-              className={`chip ${board === id ? "chip-active" : ""}`}
+              className={`rounded-pill px-4 py-2 font-mono text-[13px] transition border-[1.5px] ${board === id
+                ? "bg-ink border-ink text-board"
+                : "bg-surface border-[#C9C2AE] text-ink hover:border-ink"
+                }`}
             >
               {BOARDS[id].label}
             </button>
           ))}
         </div>
 
-        <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
+        {/* Big Heading */}
+        <h1 className="font-display text-[52px] font-bold leading-[1.0] tracking-[-0.035em] text-ink sm:text-[92px]">
           Describe it.
           <br />
-          <span className="wire-underline">Wire it. Flash it.</span>
+          Wire it. <span className="text-primary">Build it.</span>
         </h1>
-        <p className="mx-auto mt-5 max-w-[46ch] text-base text-muted sm:text-lg">
+
+        {/* Divider bar */}
+
+        {/* Sub-paragraph */}
+        <p className="mb-12 mt-5 max-w-[620px] text-lg sm:text-[20px] leading-[1.6] text-[#57523F] text-pretty">
           Tell the workbench what you want to build. Get firmware, a wiring diagram, a
-          parts list and step-by-step assembly — from idea to blinking hardware in one sitting.
+          parts list and step-by-step assembly from idea to blinking hardware in one sitting.
         </p>
 
-        <div className="card mx-auto mt-8 max-w-2xl p-2 text-left shadow-pop">
+        {/* Prompt Card */}
+        <div className="w-full max-w-[760px] bg-surface border-[1.5px] border-ink rounded-2xl shadow-solid-6 text-left overflow-hidden">
+          {/* Header Bar */}
+          <div className="flex items-center gap-2 px-[18px] py-3 border-b border-line bg-surface/50">
+            <span className="w-2.5 h-2.5 rounded-full bg-wire-red" />
+            <span className="w-2.5 h-2.5 rounded-full bg-wire-yellow" />
+            <span className="w-2.5 h-2.5 rounded-full bg-wire-green" />
+            <span className="ml-auto font-mono text-xs text-[#A29A83]">new-build.wire</span>
+          </div>
+
           <label htmlFor="hero-prompt" className="sr-only">
             Describe your build
           </label>
@@ -74,22 +92,24 @@ export function Hero() {
               }
             }}
             placeholder={`e.g. ${IDEAS[ideaIx]}`}
-            className="w-full resize-none rounded-xl bg-transparent px-4 py-3 font-body text-base outline-none placeholder:text-muted/70"
+            className="w-full resize-none bg-transparent px-6 py-6 font-mono text-base sm:text-[17px] leading-relaxed outline-none placeholder:text-[#A29A83]"
           />
-          <div className="flex items-center justify-between px-2 pb-1">
-            <span className="font-mono text-[11px] text-muted">
-              target: <span className="text-ink">{BOARDS[board].label}</span>
+
+          {/* Action Row */}
+          <div className="flex items-center justify-between px-6 pb-5 pt-4">
+            <span className="font-mono text-xs sm:text-[13px] text-[#57523F]">
+              target: <strong className="text-ink">{BOARDS[board].label}</strong>
             </span>
-            <button onClick={go} className="btn-primary">
-              Start building
-              <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M2 8h11M9 3.5 13.5 8 9 12.5" />
-              </svg>
+            <button
+              onClick={go}
+              className="inline-flex items-center gap-2 rounded-pill bg-ink px-6 py-3 font-display text-sm sm:text-base font-semibold text-board transition hover:opacity-[0.88] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Start building →
             </button>
           </div>
         </div>
 
-        <p className="mt-4 font-mono text-xs text-muted">
+        <p className="mt-7 font-mono text-[13px] text-muted">
           Free forever · Runs a deterministic build engine — no cloud, no API keys
         </p>
       </div>
