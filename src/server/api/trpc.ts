@@ -7,7 +7,7 @@ import { prisma as db } from "~/server/client";
 
 export const createTRPCContext = async (opts: { headers: Headers }) => {
   const session = await getServerAuthSession();
-  const guestId = cookies().get(process.env.WIRECRAFT_AUTH_KEY as string)?.value ?? null;
+  const guestId = (await cookies()).get(process.env.WIRECRAFT_AUTH_KEY as string)?.value ?? null;
   return { db, session, guestId, ...opts };
 };
 
@@ -28,7 +28,7 @@ export const createTRPCRouter = t.router;
 export const createCallerFactory = t.createCallerFactory;
 export const publicProcedure = t.procedure;
 
-export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
+const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   if (!ctx.session?.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }

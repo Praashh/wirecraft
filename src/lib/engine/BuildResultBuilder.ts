@@ -88,12 +88,12 @@ export class BuildResultBuilder {
     const components = this.components!;
     const behaviors = this.behaviors ?? [];
 
-    const sensorNames = components
-      .filter((c) => c.component.readingVar)
-      .map((c) => c.component.shortName);
-    const outputNames = components
-      .filter((c) => c.component.actuate || c.component.id === "oled")
-      .map((c) => c.component.shortName);
+    const sensorNames = components.flatMap((c) =>
+      c.component.readingVar ? [c.component.shortName] : [],
+    );
+    const outputNames = components.flatMap((c) =>
+      c.component.actuate || c.component.id === "oled" ? [c.component.shortName] : [],
+    );
 
     return [
       `A ${this.boardLabel} build with ${components.length} component${components.length === 1 ? "" : "s"}.`,

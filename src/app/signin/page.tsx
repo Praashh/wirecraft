@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { api } from "~/trpc/react";
+import { api } from "~/trpc/client";
 import { Wordmark } from "~/components/ui/Brand";
 
 export default function SignInPage() {
@@ -69,12 +69,13 @@ export default function SignInPage() {
             hint={mode === "register" ? "8+ characters" : undefined}
           />
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-wire-red">{error}</p>}
-          <button disabled={busy} className="btn-primary w-full justify-center disabled:opacity-50">
+          <button type="submit" disabled={busy} className="btn-primary w-full justify-center disabled:opacity-50">
             {busy ? "One moment…" : mode === "signin" ? "Sign in" : "Create account"}
           </button>
         </form>
 
         <button
+          type="button"
           onClick={() => {
             setMode((m) => (m === "signin" ? "register" : "signin"));
             setError(null);

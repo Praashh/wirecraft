@@ -753,38 +753,36 @@ function Scene({ result }: { result: BuildResult }) {
 
       {/* Jumper wires */}
       {layout.compPositions.flatMap(({ pc, pinPos }) =>
-        pc.pins
-          .filter((pin) => pin.kind !== "power" && pin.kind !== "gnd")
-          .map((pin) => {
-            const boardPos = layout.boardPins.get(pin.boardPin);
-            if (!boardPos) return null;
-            return (
-              <JumperWire
-                key={`${pc.refName}-${pin.name}`}
-                from={boardPos}
-                to={pinPos}
-                color={pin.color}
-              />
-            );
-          }),
+        pc.pins.flatMap((pin) => {
+          if (pin.kind === "power" || pin.kind === "gnd") return [];
+          const boardPos = layout.boardPins.get(pin.boardPin);
+          if (!boardPos) return [];
+          return [
+            <JumperWire
+              key={`${pc.refName}-${pin.name}`}
+              from={boardPos}
+              to={pinPos}
+              color={pin.color}
+            />,
+          ];
+        }),
       )}
 
       {/* Power wires (red & black running along power rails) */}
       {layout.compPositions.flatMap(({ pc, pinPos }) =>
-        pc.pins
-          .filter((pin) => pin.kind === "power" || pin.kind === "gnd")
-          .map((pin) => {
-            const railZ = pin.kind === "power" ? -BB_D / 2 + 0.15 : -BB_D / 2 + 0.25;
-            const railPos: [number, number, number] = [pinPos[0], BB_H / 2 + 0.02, railZ];
-            return (
-              <JumperWire
-                key={`${pc.refName}-${pin.name}`}
-                from={railPos}
-                to={pinPos}
-                color={pin.color}
-              />
-            );
-          }),
+        pc.pins.flatMap((pin) => {
+          if (pin.kind !== "power" && pin.kind !== "gnd") return [];
+          const railZ = pin.kind === "power" ? -BB_D / 2 + 0.15 : -BB_D / 2 + 0.25;
+          const railPos: [number, number, number] = [pinPos[0], BB_H / 2 + 0.02, railZ];
+          return [
+            <JumperWire
+              key={`${pc.refName}-${pin.name}`}
+              from={railPos}
+              to={pinPos}
+              color={pin.color}
+            />,
+          ];
+        }),
       )}
     </>
   );

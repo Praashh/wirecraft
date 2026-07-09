@@ -15,9 +15,10 @@ export const metadata: Metadata = {
   },
 };
 
-export default function GuidesPage({ searchParams }: { searchParams: { category?: string } }) {
+export default async function GuidesPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
+  const params = await searchParams;
   const categories = [...new Set(TEMPLATES.map((t) => t.category))].sort();
-  const active = searchParams.category;
+  const active = params.category;
   const shown = active ? TEMPLATES.filter((t) => t.category === active) : TEMPLATES;
 
   return (

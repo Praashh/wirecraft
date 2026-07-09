@@ -1,4 +1,4 @@
-export function Logo({ className = "h-[34px] w-[34px]" }: { className?: string }) {
+function Logo({ className = "h-[34px] w-[34px]" }: { className?: string }) {
   return (
     <div className={`grid place-items-center bg-ink text-wire-yellow rounded-lg font-display font-bold text-lg ${className}`} aria-hidden>
       W

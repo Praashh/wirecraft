@@ -34,6 +34,8 @@ export function allocate(boardId: BoardId, componentIds: string[]): AllocationRe
     return null;
   };
 
+  const { v5, v33, gnd } = board.powerPins;
+
   for (const id of componentIds) {
     const comp = factory.getCatalogComponent(id);
 
@@ -46,19 +48,19 @@ export function allocate(boardId: BoardId, componentIds: string[]): AllocationRe
         case "power": {
           const wantsV5 = pin.volts === 5;
           if (wantsV5 && board.volts === 3.3) {
-            boardPin = board.powerPins.v5 ?? board.powerPins.v33;
-            if (!board.powerPins.v5) {
+            boardPin = v5 ?? v33;
+            if (!v5) {
               warnings.push(
                 `${comp.shortName} prefers 5 V but ${board.label} tops out at 3.3 V — most modules still work, but check yours.`,
               );
             }
           } else {
-            boardPin = wantsV5 ? board.powerPins.v5 ?? board.powerPins.v33 : board.powerPins.v33;
+            boardPin = wantsV5 ? v5 ?? v33 : v33;
           }
           break;
         }
         case "gnd":
-          boardPin = board.powerPins.gnd;
+          boardPin = gnd;
           break;
         case "i2c-sda":
           boardPin = board.i2c.sda;

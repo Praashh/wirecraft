@@ -15,8 +15,8 @@ export function generateStaticParams() {
   return TEMPLATES.map((t) => ({ slug: t.slug }));
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const t = templateBySlug(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const t = templateBySlug((await params).slug);
   if (!t) return { title: "Guide" };
   const description = `Step-by-step build guide for "${t.title}" — wiring diagram, firmware, parts list and assembly instructions for ${t.board ?? "your board"}.`;
   return {
@@ -29,8 +29,8 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   };
 }
 
-export default async function GuidePage({ params }: { params: { slug: string } }) {
-  const t = templateBySlug(params.slug);
+export default async function GuidePage({ params }: { params: Promise<{ slug: string }> }) {
+  const t = templateBySlug((await params).slug);
   if (!t) notFound();
 
   const result = await buildProject(t.prompt, t.board, { offline: true });

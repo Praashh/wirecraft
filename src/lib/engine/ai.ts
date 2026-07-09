@@ -81,10 +81,11 @@ function validateIntent(raw: RawAIResponse, preferredBoard?: BoardId): ParsedInt
     componentIds.push("led", "button");
   }
 
+  const componentIdSet = new Set(componentIds);
   const behaviors = (raw.behaviors ?? []).filter(
     (b) =>
-      componentIds.includes(b.sensorId) &&
-      componentIds.includes(b.actuatorId) &&
+      componentIdSet.has(b.sensorId) &&
+      componentIdSet.has(b.actuatorId) &&
       (b.comparator === "<" || b.comparator === ">") &&
       typeof b.threshold === "number",
   );

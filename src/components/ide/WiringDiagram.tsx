@@ -22,6 +22,18 @@ import type { BuildResult, AllocatedPin } from "~/lib/engine/types";
 
 
 
+const usbStyle: React.CSSProperties = {
+  position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)",
+  width: 52, height: 18, background: "#8E9299", borderRadius: 4,
+  display: "flex", alignItems: "center", justifyContent: "center",
+};
+
+const chipStyle: React.CSSProperties = {
+  position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+  width: 80, height: 60, background: "#17191E", borderRadius: 6,
+  display: "flex", alignItems: "center", justifyContent: "center",
+};
+
 interface BoardNodeData {
   label: string;
   chipName: string;
@@ -41,37 +53,37 @@ function BoardNode({ data }: NodeProps<Node<BoardNodeData>>) {
       style={{ width: 220, height: h, background: boardColor, borderRadius: 14, position: "relative", fontFamily: "JetBrains Mono, monospace" }}
       className="shadow-card"
     >
-      <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", width: 52, height: 18, background: "#8E9299", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontSize: 8, fontWeight: 700, color: "#17191E" }}>USB</span>
+      <div style={usbStyle}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#17191E" }}>USB</span>
       </div>
 
-      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 80, height: 60, background: "#17191E", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#F0B100" }}>{chipName}</span>
+      <div style={chipStyle}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#F0B100" }}>{chipName}</span>
       </div>
 
       <div style={{ position: "absolute", top: -28, left: 0, fontSize: 13, fontWeight: 700, color: "#17191E", fontFamily: "Space Grotesk, sans-serif" }}>{label}</div>
 
       {leftPins.map((pin, i) => (
-        <div key={`l-${pin}-${i}`} style={{ position: "absolute", left: -4, top: 36 + i * 28, display: "flex", alignItems: "center" }}>
+        <div key={`l-${pin}`} style={{ position: "absolute", left: -4, top: 36 + i * 28, display: "flex", alignItems: "center" }}>
           <Handle
             type="source"
             position={Position.Left}
             id={`board-L-${pin}`}
             style={{ width: 10, height: 10, background: "#F0B100", border: "2px solid #17191E", position: "relative", left: -1 }}
           />
-          <span style={{ marginLeft: 14, fontSize: 9, color: "#fff", whiteSpace: "nowrap" }}>{pin}</span>
+          <span style={{ marginLeft: 14, fontSize: 12, color: "#fff", whiteSpace: "nowrap" }}>{pin}</span>
         </div>
       ))}
 
       {rightPins.map((pin, i) => (
-        <div key={`r-${pin}-${i}`} style={{ position: "absolute", right: -4, top: 36 + i * 28, display: "flex", alignItems: "center", flexDirection: "row-reverse" }}>
+        <div key={`r-${pin}`} style={{ position: "absolute", right: -4, top: 36 + i * 28, display: "flex", alignItems: "center", flexDirection: "row-reverse" }}>
           <Handle
             type="source"
             position={Position.Right}
             id={`board-R-${pin}`}
             style={{ width: 10, height: 10, background: "#F0B100", border: "2px solid #17191E", position: "relative", right: -1 }}
           />
-          <span style={{ marginRight: 14, fontSize: 9, color: "#fff", whiteSpace: "nowrap" }}>{pin}</span>
+          <span style={{ marginRight: 14, fontSize: 12, color: "#fff", whiteSpace: "nowrap" }}>{pin}</span>
         </div>
       ))}
     </div>
@@ -94,8 +106,8 @@ function ComponentNode({ data }: NodeProps<Node<CompNodeData>>) {
   return (
     <div style={{ width: 220, height: h, borderRadius: 12, overflow: "hidden", border: "1px solid #E3E1D9", background: "#fff", fontFamily: "JetBrains Mono, monospace" }} className="shadow-card">
       <div style={{ height: 28, background: "#17191E", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>{refName}</span>
-        <span style={{ fontSize: 9, color: "#B9BCC4" }}>{category.toUpperCase()}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{refName}</span>
+        <span style={{ fontSize: 12, color: "#B9BCC4" }}>{category.toUpperCase()}</span>
       </div>
       {pins.map((pin, i) => (
         <div key={pin.name} style={{ position: "relative", height: 28, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
@@ -105,8 +117,8 @@ function ComponentNode({ data }: NodeProps<Node<CompNodeData>>) {
             id={`comp-${pin.name}`}
             style={{ width: 10, height: 10, background: pin.color, border: "2px solid #17191E", left: -5 }}
           />
-          <span style={{ fontSize: 10, color: "#17191E", marginLeft: 8 }}>{pin.name}</span>
-          <span style={{ fontSize: 10, color: "#6B6E76" }}>{pin.boardPin}</span>
+          <span style={{ fontSize: 12, color: "#17191E", marginLeft: 8 }}>{pin.name}</span>
+          <span style={{ fontSize: 12, color: "#6B6E76" }}>{pin.boardPin}</span>
         </div>
       ))}
     </div>
@@ -156,9 +168,10 @@ export function WiringDiagram({ result }: { result: BuildResult }) {
 
     const nodes: Node[] = [boardNode, ...compNodes];
 
+    const rightPinSet = new Set(board.svg.right);
     const edges: Edge[] = result.components.flatMap((pc) =>
       pc.pins.map((pin) => {
-        const isRight = board.svg.right.includes(pin.boardPin);
+        const isRight = rightPinSet.has(pin.boardPin);
         const handlePrefix = isRight ? "board-R" : "board-L";
 
         return {
@@ -211,7 +224,7 @@ export function WiringDiagram({ result }: { result: BuildResult }) {
         />
       </ReactFlow>
 
-      <div className="absolute bottom-4 left-4 flex gap-4 rounded-lg border border-line bg-white/90 px-3 py-2 backdrop-blur-sm" style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10 }}>
+      <div className="absolute bottom-4 left-4 flex gap-4 rounded-lg border border-line bg-white/90 px-3 py-2 backdrop-blur-sm" style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}>
         {[
           ["#E5484D", "power"],
           ["#17191E", "ground"],

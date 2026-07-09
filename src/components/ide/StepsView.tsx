@@ -5,7 +5,7 @@ export function StepsView({ result }: { result: BuildResult }) {
     <div className="h-full overflow-auto bg-board p-4">
       <ol className="space-y-3">
         {result.steps.map((s, i) => (
-          <li key={i} className="card flex gap-4 p-4">
+          <li key={s.title} className="card flex gap-4 p-4">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-sm font-bold text-white">
               {i + 1}
             </span>
@@ -20,8 +20,8 @@ export function StepsView({ result }: { result: BuildResult }) {
         <div className="card mt-4 border-wire-yellow/60 bg-yellow-50 p-4">
           <h3 className="font-display text-sm font-semibold">Heads-up from the engine</h3>
           <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm text-muted">
-            {result.warnings.map((w, i) => (
-              <li key={i}>{w}</li>
+            {result.warnings.map((w) => (
+              <li key={w}>{w}</li>
             ))}
           </ul>
         </div>

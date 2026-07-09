@@ -24,9 +24,9 @@ export function CommunityWall() {
         </p>
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {POSTS.map((p, i) => (
+          {POSTS.map((p) => (
             <article
-              key={i}
+              key={p.handle}
               className="flex flex-col gap-4 bg-board border-[1.5px] border-line rounded-[14px] p-6 text-ink"
             >
               <div className="flex items-center gap-3">

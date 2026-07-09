@@ -56,7 +56,7 @@ export function Nav() {
           {session ? (
             <>
               <span className="font-mono text-xs text-muted">{session.user.email}</span>
-              <button onClick={() => void signOut({ callbackUrl: "/" })} className="btn-ghost !px-5 !py-2.5 text-sm font-semibold">
+              <button type="button" onClick={() => void signOut({ callbackUrl: "/" })} className="btn-ghost !px-5 !py-2.5 text-sm font-semibold">
                 Sign out
               </button>
             </>
@@ -71,6 +71,7 @@ export function Nav() {
         </div>
 
         <button
+          type="button"
           className="btn-ghost md:hidden !px-3.5 !py-1.5"
           aria-expanded={open}
           aria-label="Toggle menu"

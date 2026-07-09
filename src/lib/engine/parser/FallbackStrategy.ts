@@ -10,8 +10,9 @@ export class FallbackStrategy implements ParsingStrategy {
       ctx.componentIds.push("led", "button");
     }
 
+    const idSet = new Set(ctx.componentIds);
     ctx.behaviors = ctx.behaviors.filter(
-      (b) => ctx.componentIds.includes(b.sensorId) && ctx.componentIds.includes(b.actuatorId),
+      (b) => idSet.has(b.sensorId) && idSet.has(b.actuatorId),
     );
 
     ctx.projectName = ctx.recipeName

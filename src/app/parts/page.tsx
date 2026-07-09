@@ -18,13 +18,14 @@ export const metadata: Metadata = {
 const slugFor = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-export default function PartsPage({
+export default async function PartsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; category?: string };
+  searchParams: Promise<{ q?: string; category?: string }>;
 }) {
-  const q = searchParams.q?.toLowerCase() ?? "";
-  const active = searchParams.category;
+  const params = await searchParams;
+  const q = params.q?.toLowerCase() ?? "";
+  const active = params.category;
   const categories = [...new Set(CATALOG.map((c) => c.category))].sort();
 
   const shown = CATALOG.filter(
@@ -48,12 +49,12 @@ export default function PartsPage({
           <input
             type="search"
             name="q"
-            defaultValue={searchParams.q}
+            defaultValue={params.q}
             placeholder="Search parts — e.g. servo, motion, display"
             className="w-full max-w-sm rounded-pill border border-line bg-surface px-4 py-2.5 text-sm outline-none focus:border-ink"
             aria-label="Search parts"
           />
-          <button className="btn-primary">Search</button>
+          <button type="submit" className="btn-primary">Search</button>
         </form>
 
         <div className="mt-4 flex flex-wrap gap-2">

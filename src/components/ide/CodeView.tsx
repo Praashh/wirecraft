@@ -32,7 +32,7 @@ function Pane({ label, text }: { label: string; text: string }) {
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between border-b border-line bg-board px-4 py-2">
         <span className="font-mono text-xs font-semibold text-muted">{label}</span>
-        <button onClick={copy} className="chip">
+        <button type="button" onClick={copy} className="chip">
           {copied ? "Copied ✓" : "Copy"}
         </button>
       </div>

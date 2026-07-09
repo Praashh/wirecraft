@@ -1,10 +1,11 @@
 import type { TemplateDef } from "~/lib/engine/templates";
 
+const WIRE_COLORS = ["#E5484D", "#F0B100", "#2FA36B", "#2B4BF2"];
+
 export function Thumb({ hue, icon, seed = 3 }: { hue: number; icon: TemplateDef["icon"]; seed?: number }) {
   const bg = `hsl(${hue} 42% 92%)`;
   const mid = `hsl(${hue} 38% 78%)`;
   const deep = `hsl(${hue} 45% 34%)`;
-  const wires = ["#E5484D", "#F0B100", "#2FA36B", "#2B4BF2"];
 
   return (
     <svg viewBox="0 0 320 200" className="h-full w-full" role="img" aria-hidden>
@@ -28,7 +29,7 @@ export function Thumb({ hue, icon, seed = 3 }: { hue: number; icon: TemplateDef[
         ))}
       </g>
       {/* jumper wires arcing from board to glyph */}
-      {wires.map((w, i) => (
+      {WIRE_COLORS.map((w, i) => (
         <path
           key={w}
           d={`M ${70 + i * 24} 122 C ${86 + i * 22} ${64 - i * 6}, ${176 + i * 10} ${52 + i * 8}, ${218 + i * 8} ${88 + i * 4}`}

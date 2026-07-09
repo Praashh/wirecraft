@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { api } from "~/trpc/react";
+import { api } from "~/trpc/client";
 import type { BoardId, BuildResult } from "~/lib/engine/types";
 import { BOARDS, BOARD_ORDER } from "~/lib/engine/boards";
 import { exportProjectZip } from "~/lib/export";
@@ -67,7 +67,9 @@ export function Workbench() {
 
   const [projectId, setProjectId] = useState<string | null>(urlProject);
   const [result, setResult] = useState<BuildResult | null>(null);
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [messages, setMessages] = useState<ChatMsg[]>(() =>
+    urlPrompt && !urlProject ? [{ role: "user", content: urlPrompt }] : [],
+  );
   const [input, setInput] = useState("");
   const [tab, setTab] = useState<Tab>("wiring");
   const [board, setBoard] = useState<BoardId>(urlBoard && BOARDS[urlBoard] ? urlBoard : "esp32");
@@ -140,7 +142,6 @@ export function Workbench() {
     if (bootstrapped.current) return;
     if (urlPrompt && !urlProject) {
       bootstrapped.current = true;
-      setMessages([{ role: "user", content: urlPrompt }]);
       create.mutate({ prompt: urlPrompt, board: urlBoard });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -195,10 +196,11 @@ export function Workbench() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={newProject} className="btn-ghost !px-3.5 !py-2 text-xs">
+          <button type="button" onClick={newProject} className="btn-ghost !px-3.5 !py-2 text-xs">
             New build
           </button>
           <button
+            type="button"
             onClick={() => result && void exportProjectZip(result)}
             disabled={!result}
             className="btn-primary !px-3.5 !py-2 text-xs disabled:opacity-40"
@@ -213,6 +215,7 @@ export function Workbench() {
           <div className="flex items-center gap-1.5 border-b border-line px-3 py-2">
             {BOARD_ORDER.map((b) => (
               <button
+                type="button"
                 key={b}
                 onClick={() => switchBoard(b)}
                 className={`chip !px-2.5 !py-1 !text-[10px] ${board === b ? "chip-active" : ""}`}
@@ -233,6 +236,7 @@ export function Workbench() {
                   {["a plant waterer", "a parking sensor", "a motion alarm", "a mood lamp", "a treat dispenser"].map(
                     (s) => (
                       <button
+                        type="button"
                         key={s}
                         className="chip"
                         onClick={() => {
@@ -283,7 +287,7 @@ export function Workbench() {
                 className="max-h-28 w-full resize-none bg-transparent px-2 py-1.5 text-sm outline-none placeholder:text-muted/70"
                 aria-label="Message"
               />
-              <button onClick={send} disabled={busy} className="btn-primary !px-3 !py-1.5 text-xs disabled:opacity-40">
+              <button type="button" onClick={send} disabled={busy} className="btn-primary !px-3 !py-1.5 text-xs disabled:opacity-40">
                 Send
               </button>
             </div>
@@ -314,6 +318,7 @@ export function Workbench() {
           <div className="flex items-center gap-1 border-b border-line bg-surface px-3 py-2" role="tablist">
             {TABS.map((t) => (
               <button
+                type="button"
                 key={t.id}
                 role="tab"
                 aria-selected={tab === t.id}

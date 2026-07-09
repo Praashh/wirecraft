@@ -37,6 +37,7 @@ export function Hero() {
         <div className="mb-10 flex flex-wrap items-center justify-center gap-2.5" role="tablist" aria-label="Choose your board">
           {BOARD_ORDER.map((id) => (
             <button
+              type="button"
               key={id}
               role="tab"
               aria-selected={board === id}
@@ -101,6 +102,7 @@ export function Hero() {
               target: <strong className="text-ink">{BOARDS[board].label}</strong>
             </span>
             <button
+              type="button"
               onClick={go}
               className="inline-flex items-center gap-2 rounded-pill bg-ink px-6 py-3 font-display text-sm sm:text-base font-semibold text-board transition hover:opacity-[0.88] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
