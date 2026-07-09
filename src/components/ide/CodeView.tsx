@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { BuildResult } from "~/lib/engine/types";
 
 function tint(line: string, key: number) {
@@ -23,6 +23,10 @@ function tint(line: string, key: number) {
 
 function Pane({ label, text }: { label: string; text: string }) {
   const [copied, setCopied] = useState(false);
+  const lines = useMemo(
+    () => text.split("\n").map((content, n) => ({ lineNum: n + 1, content })),
+    [text],
+  );
   const copy = async () => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
@@ -38,10 +42,10 @@ function Pane({ label, text }: { label: string; text: string }) {
       </div>
       <pre className="max-h-[520px] overflow-auto p-4 font-mono text-[12.5px] leading-relaxed">
         <code>
-          {text.split("\n").map((l, i) => (
-            <div key={i} className="whitespace-pre">
-              <span className="mr-4 inline-block w-6 select-none text-right text-muted/50">{i + 1}</span>
-              {tint(l, i)}
+          {lines.map(({ lineNum, content }) => (
+            <div key={lineNum} className="whitespace-pre">
+              <span className="mr-4 inline-block w-6 select-none text-right text-muted/50">{lineNum}</span>
+              {tint(content, lineNum)}
             </div>
           ))}
         </code>

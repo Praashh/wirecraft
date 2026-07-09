@@ -15,7 +15,8 @@ export function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const part = CATALOG.find((c) => slugFor(c.name) === (await params).slug);
+  const { slug } = await params;
+  const part = CATALOG.find((c) => slugFor(c.name) === slug);
   if (!part) return { title: "Part" };
   const description = `${part.name} — pinouts, wiring notes and board compatibility for Arduino, ESP32 and Pico. Part of the Wirecraft component catalog.`;
   return {
@@ -29,7 +30,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function PartPage({ params }: { params: Promise<{ slug: string }> }) {
-  const part = CATALOG.find((c) => slugFor(c.name) === (await params).slug);
+  const { slug } = await params;
+  const part = CATALOG.find((c) => slugFor(c.name) === slug);
   if (!part) notFound();
 
   const usedIn = TEMPLATES.filter((t) =>

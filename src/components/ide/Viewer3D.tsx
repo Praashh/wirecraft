@@ -203,8 +203,8 @@ function ButtonMesh() {
         <meshStandardMaterial color="#E5484D" roughness={0.4} />
       </Cylinder>
       {/* 4 legs */}
-      {[[-0.08, -0.08], [-0.08, 0.08], [0.08, -0.08], [0.08, 0.08]].map(([x, z], i) => (
-        <Cylinder key={i} args={[0.012, 0.012, 0.12, 4]} position={[x!, -0.02, z!]}>
+      {[[-0.08, -0.08], [-0.08, 0.08], [0.08, -0.08], [0.08, 0.08]].map(([x, z]) => (
+        <Cylinder key={`${x}-${z}`} args={[0.012, 0.012, 0.12, 4]} position={[x!, -0.02, z!]}>
           <meshStandardMaterial color="#C0C0C0" metalness={0.8} />
         </Cylinder>
       ))}
@@ -258,8 +258,8 @@ function DHT22Mesh() {
         </mesh>
       ))}
       {/* Legs */}
-      {[-0.08, 0, 0.08].map((x, i) => (
-        <Cylinder key={i} args={[0.01, 0.01, 0.15, 4]} position={[x, -0.03, 0]}>
+      {[-0.08, 0, 0.08].map((x) => (
+        <Cylinder key={x} args={[0.01, 0.01, 0.15, 4]} position={[x, -0.03, 0]}>
           <meshStandardMaterial color="#C0C0C0" metalness={0.8} />
         </Cylinder>
       ))}
@@ -286,9 +286,9 @@ function OLEDMesh() {
         <meshStandardMaterial color="#0C1929" emissive="#1A3A5C" emissiveIntensity={0.3} />
       </mesh>
       {/* Simulated text lines */}
-      {[0.28, 0.24, 0.2, 0.16].map((yy, i) => (
-        <mesh key={i} position={[-0.04 + i * 0.02, yy, -0.034]}>
-          <boxGeometry args={[0.2 - i * 0.03, 0.02, 0.001]} />
+      {[0.28, 0.24, 0.2, 0.16].map((yy, idx) => (
+        <mesh key={yy} position={[-0.04 + idx * 0.02, yy, -0.034]}>
+          <boxGeometry args={[0.2 - idx * 0.03, 0.02, 0.001]} />
           <meshStandardMaterial color="#3B82F6" emissive="#3B82F6" emissiveIntensity={0.6} />
         </mesh>
       ))}
@@ -472,8 +472,8 @@ function PotMesh() {
         <meshStandardMaterial color="#F5F5F0" />
       </mesh>
       {/* 3 legs */}
-      {[-0.05, 0, 0.05].map((x, i) => (
-        <Cylinder key={i} args={[0.01, 0.01, 0.1, 4]} position={[x, -0.03, 0]}>
+      {[-0.05, 0, 0.05].map((x) => (
+        <Cylinder key={x} args={[0.01, 0.01, 0.1, 4]} position={[x, -0.03, 0]}>
           <meshStandardMaterial color="#C0C0C0" metalness={0.8} />
         </Cylinder>
       ))}
