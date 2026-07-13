@@ -1,856 +1,609 @@
 "use client";
 
-import { useMemo } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Text, RoundedBox, Line, Cylinder } from "@react-three/drei";
+import { useRef, useEffect } from "react";
 import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import { BOARDS } from "~/lib/engine/boards";
-import type { BuildResult, PlacedComponent } from "~/lib/engine/types";
+import type { BuildResult } from "~/lib/engine/types";
 
-
-
-const BB_W = 6.4; // breadboard width (long axis = X)
-const BB_D = 2.2; // breadboard depth (short axis = Z)
+const BB_W = 6.4;
+const BB_D = 2.2;
 const BB_H = 0.18;
-const HOLE_SPACING = 0.1; // 2.54mm scaled
 
+/* ── tiny helpers ── */
 
+function mat(color: string, opts: Partial<THREE.MeshStandardMaterialParameters> = {}) {
+  return new THREE.MeshStandardMaterial({ color, ...opts });
+}
 
-function Breadboard() {
-  return (
-    <group position={[0, 0, 0]}>
-      {/* Main body */}
-      <RoundedBox args={[BB_W, BB_H, BB_D]} radius={0.04} smoothness={3} position={[0, 0, 0]}>
-        <meshStandardMaterial color="#F5F5F0" roughness={0.85} metalness={0} />
-      </RoundedBox>
+function boxMesh(w: number, h: number, d: number, color: string, opts: Partial<THREE.MeshStandardMaterialParameters> = {}) {
+  return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color, opts));
+}
 
-      {/* Center channel divider */}
-      <mesh position={[0, BB_H / 2 + 0.001, 0]}>
-        <boxGeometry args={[BB_W - 0.3, 0.005, 0.12]} />
-        <meshStandardMaterial color="#E0DDD0" roughness={0.9} />
-      </mesh>
+function cylMesh(rT: number, rB: number, h: number, seg: number, color: string, opts: Partial<THREE.MeshStandardMaterialParameters> = {}) {
+  return new THREE.Mesh(new THREE.CylinderGeometry(rT, rB, h, seg), mat(color, opts));
+}
 
-      {/* Power rail strips (+ and -) — top */}
-      <mesh position={[0, BB_H / 2 + 0.001, -BB_D / 2 + 0.15]}>
-        <boxGeometry args={[BB_W - 0.4, 0.004, 0.06]} />
-        <meshStandardMaterial color="#E5484D" roughness={0.8} />
-      </mesh>
-      <mesh position={[0, BB_H / 2 + 0.001, -BB_D / 2 + 0.25]}>
-        <boxGeometry args={[BB_W - 0.4, 0.004, 0.06]} />
-        <meshStandardMaterial color="#2B4BF2" roughness={0.8} />
-      </mesh>
-
-      {/* Power rail strips — bottom */}
-      <mesh position={[0, BB_H / 2 + 0.001, BB_D / 2 - 0.15]}>
-        <boxGeometry args={[BB_W - 0.4, 0.004, 0.06]} />
-        <meshStandardMaterial color="#E5484D" roughness={0.8} />
-      </mesh>
-      <mesh position={[0, BB_H / 2 + 0.001, BB_D / 2 - 0.25]}>
-        <boxGeometry args={[BB_W - 0.4, 0.004, 0.06]} />
-        <meshStandardMaterial color="#2B4BF2" roughness={0.8} />
-      </mesh>
-
-      {/* Hole grid (simplified — show rows of dots) */}
-      {Array.from({ length: 50 }).map((_, col) =>
-        [-0.4, -0.28, -0.16, 0.16, 0.28, 0.4].map((zOff, row) => (
-          <mesh key={`h-${col}-${row}`} position={[-BB_W / 2 + 0.35 + col * 0.115, BB_H / 2 + 0.002, zOff]}>
-            <circleGeometry args={[0.018, 8]} />
-            <meshStandardMaterial color="#C8C4B8" side={THREE.DoubleSide} />
-          </mesh>
-        )),
-      )}
-    </group>
+function halfSphere(radius: number, wSeg: number, hSeg: number, color: string, matOpts: Partial<THREE.MeshStandardMaterialParameters> = {}) {
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(radius, wSeg, hSeg, 0, Math.PI * 2, 0, Math.PI / 2),
+    mat(color, matOpts),
   );
 }
 
+function textSprite(text: string, size: number, color: string): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d")!;
+  const px = Math.round(size * 600);
+  ctx.font = `bold ${px}px sans-serif`;
+  const tw = ctx.measureText(text).width;
+  canvas.width = Math.ceil(tw) + 16;
+  canvas.height = px + 12;
+  ctx.font = `bold ${px}px sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textBaseline = "top";
+  ctx.fillText(text, 8, 4);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+  s.scale.set((canvas.width / canvas.height) * size, size, 1);
+  return s;
+}
 
+/* ── scene builders ── */
 
-function MicrocontrollerBoard({ result }: { result: BuildResult }) {
+function buildBreadboard(): THREE.Group {
+  const g = new THREE.Group();
+  const body = boxMesh(BB_W, BB_H, BB_D, "#F5F5F0", { roughness: 0.85, metalness: 0 });
+  g.add(body);
+
+  const channel = boxMesh(BB_W - 0.3, 0.005, 0.12, "#E0DDD0", { roughness: 0.9 });
+  channel.position.set(0, BB_H / 2 + 0.001, 0);
+  g.add(channel);
+
+  const rails: [number, string][] = [
+    [-BB_D / 2 + 0.15, "#E5484D"], [-BB_D / 2 + 0.25, "#2B4BF2"],
+    [BB_D / 2 - 0.15, "#E5484D"], [BB_D / 2 - 0.25, "#2B4BF2"],
+  ];
+  for (const [z, c] of rails) {
+    const r = boxMesh(BB_W - 0.4, 0.004, 0.06, c, { roughness: 0.8 });
+    r.position.set(0, BB_H / 2 + 0.001, z);
+    g.add(r);
+  }
+
+  const holeMat = mat("#C8C4B8", { side: THREE.DoubleSide });
+  const holeGeo = new THREE.CircleGeometry(0.018, 8);
+  for (let col = 0; col < 50; col++) {
+    for (const zOff of [-0.4, -0.28, -0.16, 0.16, 0.28, 0.4]) {
+      const h = new THREE.Mesh(holeGeo, holeMat);
+      h.rotation.x = -Math.PI / 2;
+      h.position.set(-BB_W / 2 + 0.35 + col * 0.115, BB_H / 2 + 0.002, zOff);
+      g.add(h);
+    }
+  }
+  return g;
+}
+
+function buildMCU(result: BuildResult): THREE.Group {
   const board = BOARDS[result.board];
-  const mcuW = 2.2;
-  const mcuD = 1.0;
-  const mcuH = 0.12;
+  const mcuW = 2.2, mcuD = 1.0, mcuH = 0.12;
   const x = -BB_W / 2 + mcuW / 2 + 0.3;
   const y = BB_H / 2 + mcuH / 2 + 0.02;
+  const g = new THREE.Group();
+  g.position.set(x, y, 0);
 
-  return (
-    <group position={[x, y, 0]}>
-      {/* PCB */}
-      <RoundedBox args={[mcuW, mcuH, mcuD]} radius={0.04} smoothness={3}>
-        <meshStandardMaterial color={board.svg.color} roughness={0.5} metalness={0.15} />
-      </RoundedBox>
+  g.add(boxMesh(mcuW, mcuH, mcuD, board.svg.color, { roughness: 0.5, metalness: 0.15 }));
 
-      {/* Chip IC */}
-      <RoundedBox args={[0.6, 0.08, 0.45]} radius={0.02} smoothness={2} position={[0.1, mcuH / 2 + 0.04, 0]}>
-        <meshStandardMaterial color="#17191E" roughness={0.25} metalness={0.5} />
-      </RoundedBox>
+  const chip = boxMesh(0.6, 0.08, 0.45, "#17191E", { roughness: 0.25, metalness: 0.5 });
+  chip.position.set(0.1, mcuH / 2 + 0.04, 0);
+  g.add(chip);
 
-      {/* Chip label */}
-      <Text
-        position={[0.1, mcuH / 2 + 0.09, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={0.08}
-        color="#F0B100"
-        anchorX="center"
-        anchorY="middle"
-      >
-        {board.svg.name}
-      </Text>
+  const chipLabel = textSprite(board.svg.name, 0.08, "#F0B100");
+  chipLabel.position.set(0.1, mcuH / 2 + 0.1, 0);
+  g.add(chipLabel);
 
-      {/* USB port */}
-      <RoundedBox args={[0.3, 0.1, 0.2]} radius={0.02} smoothness={2} position={[-mcuW / 2 + 0.1, mcuH / 2 + 0.04, 0]}>
-        <meshStandardMaterial color="#8E9299" roughness={0.4} metalness={0.7} />
-      </RoundedBox>
+  const usb = boxMesh(0.3, 0.1, 0.2, "#8E9299", { roughness: 0.4, metalness: 0.7 });
+  usb.position.set(-mcuW / 2 + 0.1, mcuH / 2 + 0.04, 0);
+  g.add(usb);
 
-      {/* Pin header rows (gold cylinders) */}
-      {Array.from({ length: 14 }).map((_, i) => (
-        <group key={`pin-t-${i}`}>
-          <Cylinder args={[0.02, 0.02, 0.15, 6]} position={[-mcuW / 2 + 0.2 + i * 0.13, -mcuH / 2 - 0.05, -mcuD / 2 + 0.08]}>
-            <meshStandardMaterial color="#D4A84B" metalness={0.8} roughness={0.2} />
-          </Cylinder>
-          <Cylinder args={[0.02, 0.02, 0.15, 6]} position={[-mcuW / 2 + 0.2 + i * 0.13, -mcuH / 2 - 0.05, mcuD / 2 - 0.08]}>
-            <meshStandardMaterial color="#D4A84B" metalness={0.8} roughness={0.2} />
-          </Cylinder>
-        </group>
-      ))}
+  const pinMat = mat("#D4A84B", { metalness: 0.8, roughness: 0.2 });
+  const pinGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.15, 6);
+  for (let i = 0; i < 14; i++) {
+    const px = -mcuW / 2 + 0.2 + i * 0.13;
+    const py = -mcuH / 2 - 0.05;
+    const p1 = new THREE.Mesh(pinGeo, pinMat);
+    p1.position.set(px, py, -mcuD / 2 + 0.08);
+    g.add(p1);
+    const p2 = new THREE.Mesh(pinGeo, pinMat);
+    p2.position.set(px, py, mcuD / 2 - 0.08);
+    g.add(p2);
+  }
 
-      {/* Board label */}
-      <Text
-        position={[0, mcuH / 2 + 0.09, -mcuD / 2 + 0.12]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={0.06}
-        color="#fff"
-        anchorX="center"
-        anchorY="middle"
-      >
-        {result.boardLabel}
-      </Text>
+  const boardLabel = textSprite(result.boardLabel, 0.06, "#ffffff");
+  boardLabel.position.set(0, mcuH / 2 + 0.1, -mcuD / 2 + 0.12);
+  g.add(boardLabel);
 
-      {/* Status LED (green) */}
-      <mesh position={[mcuW / 2 - 0.15, mcuH / 2 + 0.03, -0.15]}>
-        <boxGeometry args={[0.06, 0.03, 0.03]} />
-        <meshStandardMaterial color="#2FA36B" emissive="#2FA36B" emissiveIntensity={0.5} />
-      </mesh>
+  const statusLed = boxMesh(0.06, 0.03, 0.03, "#2FA36B", { emissive: new THREE.Color("#2FA36B"), emissiveIntensity: 0.5 });
+  statusLed.position.set(mcuW / 2 - 0.15, mcuH / 2 + 0.03, -0.15);
+  g.add(statusLed);
 
-      {/* Power LED (red) */}
-      <mesh position={[mcuW / 2 - 0.15, mcuH / 2 + 0.03, 0.15]}>
-        <boxGeometry args={[0.06, 0.03, 0.03]} />
-        <meshStandardMaterial color="#E5484D" emissive="#E5484D" emissiveIntensity={0.3} />
-      </mesh>
-    </group>
-  );
+  const pwrLed = boxMesh(0.06, 0.03, 0.03, "#E5484D", { emissive: new THREE.Color("#E5484D"), emissiveIntensity: 0.3 });
+  pwrLed.position.set(mcuW / 2 - 0.15, mcuH / 2 + 0.03, 0.15);
+  g.add(pwrLed);
+
+  return g;
 }
 
-
+/* ── component shapes ── */
 
 const COMP_COLORS: Record<string, string> = {
-  led: "#E5484D",
-  buzzer: "#2A2A2A",
-  servo: "#3B82F6",
-  relay: "#2563EB",
-  neopixel: "#A855F7",
-  button: "#6B7280",
-  ultrasonic: "#1E7A8C",
-  dht22: "#F5F5F0",
-  oled: "#111111",
-  pir: "#F5F5F0",
-  ldr: "#B45309",
-  soil: "#6B7280",
-  pot: "#374151",
-  rfid: "#1E7A8C",
-  gas: "#6B7280",
-  encoder: "#374151",
+  led: "#E5484D", buzzer: "#2A2A2A", servo: "#3B82F6", relay: "#2563EB",
+  neopixel: "#A855F7", button: "#6B7280", ultrasonic: "#1E7A8C", dht22: "#F5F5F0",
+  oled: "#111111", pir: "#F5F5F0", ldr: "#B45309", soil: "#6B7280",
+  pot: "#374151", rfid: "#1E7A8C", gas: "#6B7280", encoder: "#374151",
 };
 
-/** LED: dome + body + two legs */
-function LEDMesh({ color }: { color: string }) {
-  return (
-    <group>
-      {/* Dome */}
-      <mesh position={[0, 0.22, 0]}>
-        <sphereGeometry args={[0.08, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} transparent opacity={0.85} />
-      </mesh>
-      {/* Body */}
-      <Cylinder args={[0.08, 0.08, 0.18, 16]} position={[0, 0.13, 0]}>
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.2} transparent opacity={0.8} />
-      </Cylinder>
-      {/* Flat base */}
-      <Cylinder args={[0.1, 0.1, 0.03, 16]} position={[0, 0.04, 0]}>
-        <meshStandardMaterial color={color} transparent opacity={0.7} />
-      </Cylinder>
-      {/* Legs */}
-      <Cylinder args={[0.01, 0.01, 0.2, 4]} position={[-0.03, -0.08, 0]}>
-        <meshStandardMaterial color="#C0C0C0" metalness={0.8} />
-      </Cylinder>
-      <Cylinder args={[0.01, 0.01, 0.15, 4]} position={[0.03, -0.055, 0]}>
-        <meshStandardMaterial color="#C0C0C0" metalness={0.8} />
-      </Cylinder>
-    </group>
-  );
+const legMat = mat("#C0C0C0", { metalness: 0.8 });
+
+function buildLED(color: string): THREE.Group {
+  const g = new THREE.Group();
+  const dome = halfSphere(0.08, 16, 12, color, { emissive: new THREE.Color(color), emissiveIntensity: 0.4, transparent: true, opacity: 0.85 });
+  dome.position.set(0, 0.22, 0);
+  g.add(dome);
+  const body = cylMesh(0.08, 0.08, 0.18, 16, color, { emissive: new THREE.Color(color), emissiveIntensity: 0.2, transparent: true, opacity: 0.8 });
+  body.position.set(0, 0.13, 0);
+  g.add(body);
+  const base = cylMesh(0.1, 0.1, 0.03, 16, color, { transparent: true, opacity: 0.7 });
+  base.position.set(0, 0.04, 0);
+  g.add(base);
+  const legGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.2, 4);
+  const l1 = new THREE.Mesh(legGeo, legMat); l1.position.set(-0.03, -0.08, 0); g.add(l1);
+  const legGeo2 = new THREE.CylinderGeometry(0.01, 0.01, 0.15, 4);
+  const l2 = new THREE.Mesh(legGeo2, legMat); l2.position.set(0.03, -0.055, 0); g.add(l2);
+  return g;
 }
 
-/** Tactile push button */
-function ButtonMesh() {
-  return (
-    <group>
-      <RoundedBox args={[0.24, 0.12, 0.24]} radius={0.02} smoothness={2} position={[0, 0.08, 0]}>
-        <meshStandardMaterial color="#1A1A1A" roughness={0.6} />
-      </RoundedBox>
-      {/* Button cap */}
-      <Cylinder args={[0.06, 0.06, 0.08, 16]} position={[0, 0.18, 0]}>
-        <meshStandardMaterial color="#E5484D" roughness={0.4} />
-      </Cylinder>
-      {/* 4 legs */}
-      {[[-0.08, -0.08], [-0.08, 0.08], [0.08, -0.08], [0.08, 0.08]].map(([x, z]) => (
-        <Cylinder key={`${x}-${z}`} args={[0.012, 0.012, 0.12, 4]} position={[x!, -0.02, z!]}>
-          <meshStandardMaterial color="#C0C0C0" metalness={0.8} />
-        </Cylinder>
-      ))}
-    </group>
-  );
+function buildButton(): THREE.Group {
+  const g = new THREE.Group();
+  const body = boxMesh(0.24, 0.12, 0.24, "#1A1A1A", { roughness: 0.6 });
+  body.position.set(0, 0.08, 0);
+  g.add(body);
+  const cap = cylMesh(0.06, 0.06, 0.08, 16, "#E5484D", { roughness: 0.4 });
+  cap.position.set(0, 0.18, 0);
+  g.add(cap);
+  const legGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.12, 4);
+  for (const [lx, lz] of [[-0.08, -0.08], [-0.08, 0.08], [0.08, -0.08], [0.08, 0.08]]) {
+    const l = new THREE.Mesh(legGeo, legMat); l.position.set(lx, -0.02, lz); g.add(l);
+  }
+  return g;
 }
 
-/** HC-SR04 ultrasonic sensor — two cylindrical transducers on a PCB */
-function UltrasonicMesh() {
-  return (
-    <group>
-      {/* PCB */}
-      <RoundedBox args={[0.55, 0.06, 0.35]} radius={0.02} smoothness={2} position={[0, 0.05, 0]}>
-        <meshStandardMaterial color="#1E7A8C" roughness={0.5} />
-      </RoundedBox>
-      {/* Left transducer */}
-      <Cylinder args={[0.1, 0.1, 0.12, 20]} position={[-0.14, 0.14, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <meshStandardMaterial color="#D4D4D4" metalness={0.6} roughness={0.3} />
-      </Cylinder>
-      <Cylinder args={[0.08, 0.08, 0.02, 20]} position={[-0.14, 0.14, -0.07]} rotation={[Math.PI / 2, 0, 0]}>
-        <meshStandardMaterial color="#A0A0A0" metalness={0.5} />
-      </Cylinder>
-      {/* Right transducer */}
-      <Cylinder args={[0.1, 0.1, 0.12, 20]} position={[0.14, 0.14, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <meshStandardMaterial color="#D4D4D4" metalness={0.6} roughness={0.3} />
-      </Cylinder>
-      <Cylinder args={[0.08, 0.08, 0.02, 20]} position={[0.14, 0.14, -0.07]} rotation={[Math.PI / 2, 0, 0]}>
-        <meshStandardMaterial color="#A0A0A0" metalness={0.5} />
-      </Cylinder>
-      {/* Crystal between */}
-      <mesh position={[0, 0.1, 0.05]}>
-        <boxGeometry args={[0.1, 0.06, 0.04]} />
-        <meshStandardMaterial color="#17191E" />
-      </mesh>
-    </group>
-  );
+function buildUltrasonic(): THREE.Group {
+  const g = new THREE.Group();
+  const pcb = boxMesh(0.55, 0.06, 0.35, "#1E7A8C", { roughness: 0.5 });
+  pcb.position.set(0, 0.05, 0);
+  g.add(pcb);
+  for (const xOff of [-0.14, 0.14]) {
+    const t = cylMesh(0.1, 0.1, 0.12, 20, "#D4D4D4", { metalness: 0.6, roughness: 0.3 });
+    t.position.set(xOff, 0.14, 0); t.rotation.x = Math.PI / 2; g.add(t);
+    const tc = cylMesh(0.08, 0.08, 0.02, 20, "#A0A0A0", { metalness: 0.5 });
+    tc.position.set(xOff, 0.14, -0.07); tc.rotation.x = Math.PI / 2; g.add(tc);
+  }
+  const crystal = boxMesh(0.1, 0.06, 0.04, "#17191E");
+  crystal.position.set(0, 0.1, 0.05);
+  g.add(crystal);
+  return g;
 }
 
-/** DHT22 temperature sensor — white housing */
-function DHT22Mesh() {
-  return (
-    <group>
-      <RoundedBox args={[0.3, 0.35, 0.08]} radius={0.02} smoothness={2} position={[0, 0.2, 0]}>
-        <meshStandardMaterial color="#F5F5F0" roughness={0.8} />
-      </RoundedBox>
-      {/* Vent grille */}
-      {Array.from({ length: 5 }).map((_, i) => (
-        <mesh key={i} position={[0, 0.28 - i * 0.04, -0.042]}>
-          <boxGeometry args={[0.2, 0.015, 0.002]} />
-          <meshStandardMaterial color="#D0CFC8" />
-        </mesh>
-      ))}
-      {/* Legs */}
-      {[-0.08, 0, 0.08].map((x) => (
-        <Cylinder key={x} args={[0.01, 0.01, 0.15, 4]} position={[x, -0.03, 0]}>
-          <meshStandardMaterial color="#C0C0C0" metalness={0.8} />
-        </Cylinder>
-      ))}
-    </group>
-  );
+function buildDHT22(): THREE.Group {
+  const g = new THREE.Group();
+  const body = boxMesh(0.3, 0.35, 0.08, "#F5F5F0", { roughness: 0.8 });
+  body.position.set(0, 0.2, 0);
+  g.add(body);
+  for (let i = 0; i < 5; i++) {
+    const v = boxMesh(0.2, 0.015, 0.002, "#D0CFC8");
+    v.position.set(0, 0.28 - i * 0.04, -0.042);
+    g.add(v);
+  }
+  const legGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.15, 4);
+  for (const lx of [-0.08, 0, 0.08]) {
+    const l = new THREE.Mesh(legGeo, legMat); l.position.set(lx, -0.03, 0); g.add(l);
+  }
+  return g;
 }
 
-/** OLED 0.96" display — dark screen with blue tint */
-function OLEDMesh() {
-  return (
-    <group>
-      {/* PCB back */}
-      <RoundedBox args={[0.5, 0.35, 0.06]} radius={0.02} smoothness={2} position={[0, 0.2, 0.01]}>
-        <meshStandardMaterial color="#1A5C2E" roughness={0.5} />
-      </RoundedBox>
-      {/* Screen bezel */}
-      <mesh position={[0, 0.22, -0.02]}>
-        <boxGeometry args={[0.45, 0.26, 0.02]} />
-        <meshStandardMaterial color="#0A0A0A" roughness={0.3} />
-      </mesh>
-      {/* Active display area */}
-      <mesh position={[0, 0.22, -0.032]}>
-        <boxGeometry args={[0.38, 0.2, 0.002]} />
-        <meshStandardMaterial color="#0C1929" emissive="#1A3A5C" emissiveIntensity={0.3} />
-      </mesh>
-      {/* Simulated text lines */}
-      {[0.28, 0.24, 0.2, 0.16].map((yy, idx) => (
-        <mesh key={yy} position={[-0.04 + idx * 0.02, yy, -0.034]}>
-          <boxGeometry args={[0.2 - idx * 0.03, 0.02, 0.001]} />
-          <meshStandardMaterial color="#3B82F6" emissive="#3B82F6" emissiveIntensity={0.6} />
-        </mesh>
-      ))}
-      {/* Header pins */}
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Cylinder key={i} args={[0.01, 0.01, 0.12, 4]} position={[-0.12 + i * 0.08, 0.01, 0]}>
-          <meshStandardMaterial color="#D4A84B" metalness={0.8} />
-        </Cylinder>
-      ))}
-    </group>
-  );
+function buildOLED(): THREE.Group {
+  const g = new THREE.Group();
+  const pcb = boxMesh(0.5, 0.35, 0.06, "#1A5C2E", { roughness: 0.5 });
+  pcb.position.set(0, 0.2, 0.01);
+  g.add(pcb);
+  const bezel = boxMesh(0.45, 0.26, 0.02, "#0A0A0A", { roughness: 0.3 });
+  bezel.position.set(0, 0.22, -0.02);
+  g.add(bezel);
+  const screen = boxMesh(0.38, 0.2, 0.002, "#0C1929", { emissive: new THREE.Color("#1A3A5C"), emissiveIntensity: 0.3 });
+  screen.position.set(0, 0.22, -0.032);
+  g.add(screen);
+  [0.28, 0.24, 0.2, 0.16].forEach((yy, idx) => {
+    const line = boxMesh(0.2 - idx * 0.03, 0.02, 0.001, "#3B82F6", { emissive: new THREE.Color("#3B82F6"), emissiveIntensity: 0.6 });
+    line.position.set(-0.04 + idx * 0.02, yy, -0.034);
+    g.add(line);
+  });
+  const pinGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.12, 4);
+  const pinMat = mat("#D4A84B", { metalness: 0.8 });
+  for (let i = 0; i < 4; i++) {
+    const p = new THREE.Mesh(pinGeo, pinMat); p.position.set(-0.12 + i * 0.08, 0.01, 0); g.add(p);
+  }
+  return g;
 }
 
-/** Passive piezo buzzer */
-function BuzzerMesh() {
-  return (
-    <group>
-      <Cylinder args={[0.12, 0.12, 0.1, 20]} position={[0, 0.08, 0]}>
-        <meshStandardMaterial color="#1A1A1A" roughness={0.6} />
-      </Cylinder>
-      {/* Top grille */}
-      <Cylinder args={[0.11, 0.11, 0.015, 20]} position={[0, 0.135, 0]}>
-        <meshStandardMaterial color="#2A2A2A" roughness={0.5} metalness={0.3} />
-      </Cylinder>
-      {/* Sound hole */}
-      <Cylinder args={[0.03, 0.03, 0.005, 12]} position={[0, 0.144, 0]}>
-        <meshStandardMaterial color="#111" />
-      </Cylinder>
-      {/* Legs */}
-      <Cylinder args={[0.01, 0.01, 0.1, 4]} position={[-0.04, -0.02, 0]}>
-        <meshStandardMaterial color="#C0C0C0" metalness={0.8} />
-      </Cylinder>
-      <Cylinder args={[0.01, 0.01, 0.1, 4]} position={[0.04, -0.02, 0]}>
-        <meshStandardMaterial color="#C0C0C0" metalness={0.8} />
-      </Cylinder>
-    </group>
-  );
+function buildBuzzer(): THREE.Group {
+  const g = new THREE.Group();
+  const body = cylMesh(0.12, 0.12, 0.1, 20, "#1A1A1A", { roughness: 0.6 });
+  body.position.set(0, 0.08, 0); g.add(body);
+  const grille = cylMesh(0.11, 0.11, 0.015, 20, "#2A2A2A", { roughness: 0.5, metalness: 0.3 });
+  grille.position.set(0, 0.135, 0); g.add(grille);
+  const hole = cylMesh(0.03, 0.03, 0.005, 12, "#111111");
+  hole.position.set(0, 0.144, 0); g.add(hole);
+  const legGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.1, 4);
+  const l1 = new THREE.Mesh(legGeo, legMat); l1.position.set(-0.04, -0.02, 0); g.add(l1);
+  const l2 = new THREE.Mesh(legGeo, legMat); l2.position.set(0.04, -0.02, 0); g.add(l2);
+  return g;
 }
 
-/** SG90 micro servo */
-function ServoMesh() {
-  return (
-    <group>
-      {/* Body */}
-      <RoundedBox args={[0.45, 0.22, 0.2]} radius={0.02} smoothness={2} position={[0, 0.13, 0]}>
-        <meshStandardMaterial color="#3B82F6" roughness={0.5} />
-      </RoundedBox>
-      {/* Mounting tabs */}
-      <mesh position={[0, 0.22, 0]}>
-        <boxGeometry args={[0.6, 0.025, 0.2]} />
-        <meshStandardMaterial color="#3B82F6" roughness={0.5} />
-      </mesh>
-      {/* Output shaft */}
-      <Cylinder args={[0.03, 0.03, 0.06, 12]} position={[0.15, 0.27, 0]}>
-        <meshStandardMaterial color="#F5F5F0" roughness={0.4} />
-      </Cylinder>
-      {/* Horn/arm */}
-      <mesh position={[0.15, 0.31, 0]}>
-        <boxGeometry args={[0.04, 0.015, 0.2]} />
-        <meshStandardMaterial color="#F5F5F0" roughness={0.4} />
-      </mesh>
-      {/* Label */}
-      <Text position={[0, 0.13, -0.102]} fontSize={0.05} color="#fff" anchorX="center" anchorY="middle">
-        SG90
-      </Text>
-      {/* Wire bundle */}
-      <mesh position={[-0.22, 0.05, 0]}>
-        <boxGeometry args={[0.05, 0.03, 0.08]} />
-        <meshStandardMaterial color="#4B5563" />
-      </mesh>
-    </group>
-  );
+function buildServo(): THREE.Group {
+  const g = new THREE.Group();
+  const body = boxMesh(0.45, 0.22, 0.2, "#3B82F6", { roughness: 0.5 });
+  body.position.set(0, 0.13, 0); g.add(body);
+  const tabs = boxMesh(0.6, 0.025, 0.2, "#3B82F6", { roughness: 0.5 });
+  tabs.position.set(0, 0.22, 0); g.add(tabs);
+  const shaft = cylMesh(0.03, 0.03, 0.06, 12, "#F5F5F0", { roughness: 0.4 });
+  shaft.position.set(0.15, 0.27, 0); g.add(shaft);
+  const horn = boxMesh(0.04, 0.015, 0.2, "#F5F5F0", { roughness: 0.4 });
+  horn.position.set(0.15, 0.31, 0); g.add(horn);
+  const label = textSprite("SG90", 0.05, "#ffffff");
+  label.position.set(0, 0.13, -0.11); g.add(label);
+  const wire = boxMesh(0.05, 0.03, 0.08, "#4B5563");
+  wire.position.set(-0.22, 0.05, 0); g.add(wire);
+  return g;
 }
 
-/** PIR motion sensor — dome on PCB */
-function PIRMesh() {
-  return (
-    <group>
-      {/* PCB */}
-      <Cylinder args={[0.18, 0.18, 0.06, 20]} position={[0, 0.05, 0]}>
-        <meshStandardMaterial color="#1A5C2E" roughness={0.5} />
-      </Cylinder>
-      {/* Fresnel dome */}
-      <mesh position={[0, 0.18, 0]}>
-        <sphereGeometry args={[0.14, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color="#F5F5F0" transparent opacity={0.7} roughness={0.3} />
-      </mesh>
-      {/* Pyro element under dome */}
-      <mesh position={[0, 0.1, 0]}>
-        <boxGeometry args={[0.06, 0.06, 0.06]} />
-        <meshStandardMaterial color="#D4A84B" metalness={0.6} />
-      </mesh>
-      {/* Trim pots */}
-      <Cylinder args={[0.025, 0.025, 0.02, 8]} position={[-0.1, 0.09, 0.08]}>
-        <meshStandardMaterial color="#D4A84B" metalness={0.5} />
-      </Cylinder>
-      <Cylinder args={[0.025, 0.025, 0.02, 8]} position={[0.1, 0.09, 0.08]}>
-        <meshStandardMaterial color="#D4A84B" metalness={0.5} />
-      </Cylinder>
-    </group>
-  );
+function buildPIR(): THREE.Group {
+  const g = new THREE.Group();
+  const pcb = cylMesh(0.18, 0.18, 0.06, 20, "#1A5C2E", { roughness: 0.5 });
+  pcb.position.set(0, 0.05, 0); g.add(pcb);
+  const dome = halfSphere(0.14, 16, 12, "#F5F5F0", { transparent: true, opacity: 0.7, roughness: 0.3 });
+  dome.position.set(0, 0.18, 0); g.add(dome);
+  const pyro = boxMesh(0.06, 0.06, 0.06, "#D4A84B", { metalness: 0.6 });
+  pyro.position.set(0, 0.1, 0); g.add(pyro);
+  const potGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.02, 8);
+  const potMat = mat("#D4A84B", { metalness: 0.5 });
+  const tp1 = new THREE.Mesh(potGeo, potMat); tp1.position.set(-0.1, 0.09, 0.08); g.add(tp1);
+  const tp2 = new THREE.Mesh(potGeo, potMat); tp2.position.set(0.1, 0.09, 0.08); g.add(tp2);
+  return g;
 }
 
-/** Relay module */
-function RelayMesh() {
-  return (
-    <group>
-      {/* PCB */}
-      <RoundedBox args={[0.5, 0.06, 0.35]} radius={0.02} smoothness={2} position={[0, 0.05, 0]}>
-        <meshStandardMaterial color="#1A5C2E" roughness={0.5} />
-      </RoundedBox>
-      {/* Relay cube */}
-      <RoundedBox args={[0.32, 0.25, 0.28]} radius={0.01} smoothness={2} position={[0.05, 0.2, 0]}>
-        <meshStandardMaterial color="#2563EB" roughness={0.5} />
-      </RoundedBox>
-      {/* Label */}
-      <Text position={[0.05, 0.2, -0.142]} fontSize={0.04} color="#fff" anchorX="center" anchorY="middle">
-        RELAY
-      </Text>
-      {/* LED indicator */}
-      <mesh position={[-0.15, 0.1, -0.1]}>
-        <sphereGeometry args={[0.02, 8, 8]} />
-        <meshStandardMaterial color="#E5484D" emissive="#E5484D" emissiveIntensity={0.5} />
-      </mesh>
-      {/* Screw terminals */}
-      <mesh position={[0.05, 0.34, 0]}>
-        <boxGeometry args={[0.34, 0.04, 0.14]} />
-        <meshStandardMaterial color="#2B9DDB" roughness={0.5} />
-      </mesh>
-    </group>
-  );
+function buildRelay(): THREE.Group {
+  const g = new THREE.Group();
+  const pcb = boxMesh(0.5, 0.06, 0.35, "#1A5C2E", { roughness: 0.5 });
+  pcb.position.set(0, 0.05, 0); g.add(pcb);
+  const cube = boxMesh(0.32, 0.25, 0.28, "#2563EB", { roughness: 0.5 });
+  cube.position.set(0.05, 0.2, 0); g.add(cube);
+  const label = textSprite("RELAY", 0.04, "#ffffff");
+  label.position.set(0.05, 0.2, -0.15); g.add(label);
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), mat("#E5484D", { emissive: new THREE.Color("#E5484D"), emissiveIntensity: 0.5 }));
+  led.position.set(-0.15, 0.1, -0.1); g.add(led);
+  const term = boxMesh(0.34, 0.04, 0.14, "#2B9DDB", { roughness: 0.5 });
+  term.position.set(0.05, 0.34, 0); g.add(term);
+  return g;
 }
 
-/** NeoPixel ring */
-function NeoPixelMesh() {
-  return (
-    <group>
-      {/* Ring PCB */}
-      <Cylinder args={[0.18, 0.18, 0.03, 24]} position={[0, 0.04, 0]}>
-        <meshStandardMaterial color="#1A1A1A" roughness={0.5} />
-      </Cylinder>
-      {/* Center hole */}
-      <Cylinder args={[0.1, 0.1, 0.04, 24]} position={[0, 0.04, 0]}>
-        <meshStandardMaterial color="#0A0A0A" />
-      </Cylinder>
-      {/* LED pixels around the ring */}
-      {Array.from({ length: 8 }).map((_, i) => {
-        const angle = (i / 8) * Math.PI * 2;
-        const hue = (i / 8) * 360;
-        const color = `hsl(${hue}, 80%, 60%)`;
-        return (
-          <mesh key={i} position={[Math.cos(angle) * 0.14, 0.06, Math.sin(angle) * 0.14]}>
-            <boxGeometry args={[0.04, 0.02, 0.04]} />
-            <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} />
-          </mesh>
-        );
-      })}
-    </group>
-  );
+function buildNeoPixel(): THREE.Group {
+  const g = new THREE.Group();
+  const ring = cylMesh(0.18, 0.18, 0.03, 24, "#1A1A1A", { roughness: 0.5 });
+  ring.position.set(0, 0.04, 0); g.add(ring);
+  const center = cylMesh(0.1, 0.1, 0.04, 24, "#0A0A0A");
+  center.position.set(0, 0.04, 0); g.add(center);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const hue = (i / 8);
+    const c = new THREE.Color().setHSL(hue, 0.8, 0.6);
+    const px = boxMesh(0.04, 0.02, 0.04, "#000000", { emissive: c, emissiveIntensity: 0.6 });
+    px.material.color = c;
+    px.position.set(Math.cos(a) * 0.14, 0.06, Math.sin(a) * 0.14);
+    g.add(px);
+  }
+  return g;
 }
 
-/** Potentiometer */
-function PotMesh() {
-  return (
-    <group>
-      {/* Body */}
-      <Cylinder args={[0.1, 0.1, 0.08, 16]} position={[0, 0.06, 0]}>
-        <meshStandardMaterial color="#374151" roughness={0.5} metalness={0.3} />
-      </Cylinder>
-      {/* Shaft */}
-      <Cylinder args={[0.025, 0.025, 0.12, 8]} position={[0, 0.16, 0]}>
-        <meshStandardMaterial color="#C0C0C0" metalness={0.8} roughness={0.2} />
-      </Cylinder>
-      {/* Knob */}
-      <Cylinder args={[0.06, 0.06, 0.06, 16]} position={[0, 0.24, 0]}>
-        <meshStandardMaterial color="#17191E" roughness={0.4} />
-      </Cylinder>
-      {/* Knob indicator */}
-      <mesh position={[0.04, 0.275, 0]}>
-        <boxGeometry args={[0.02, 0.005, 0.005]} />
-        <meshStandardMaterial color="#F5F5F0" />
-      </mesh>
-      {/* 3 legs */}
-      {[-0.05, 0, 0.05].map((x) => (
-        <Cylinder key={x} args={[0.01, 0.01, 0.1, 4]} position={[x, -0.03, 0]}>
-          <meshStandardMaterial color="#C0C0C0" metalness={0.8} />
-        </Cylinder>
-      ))}
-    </group>
-  );
+function buildPot(): THREE.Group {
+  const g = new THREE.Group();
+  const body = cylMesh(0.1, 0.1, 0.08, 16, "#374151", { roughness: 0.5, metalness: 0.3 });
+  body.position.set(0, 0.06, 0); g.add(body);
+  const shaft = cylMesh(0.025, 0.025, 0.12, 8, "#C0C0C0", { metalness: 0.8, roughness: 0.2 });
+  shaft.position.set(0, 0.16, 0); g.add(shaft);
+  const knob = cylMesh(0.06, 0.06, 0.06, 16, "#17191E", { roughness: 0.4 });
+  knob.position.set(0, 0.24, 0); g.add(knob);
+  const ind = boxMesh(0.02, 0.005, 0.005, "#F5F5F0");
+  ind.position.set(0.04, 0.275, 0); g.add(ind);
+  const legGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.1, 4);
+  for (const lx of [-0.05, 0, 0.05]) {
+    const l = new THREE.Mesh(legGeo, legMat); l.position.set(lx, -0.03, 0); g.add(l);
+  }
+  return g;
 }
 
-/** LDR photoresistor */
-function LDRMesh() {
-  return (
-    <group>
-      {/* Disc body */}
-      <Cylinder args={[0.06, 0.06, 0.04, 16]} position={[0, 0.08, 0]}>
-        <meshStandardMaterial color="#B45309" roughness={0.6} />
-      </Cylinder>
-      {/* Squiggly pattern (simplified as cross) */}
-      <mesh position={[0, 0.105, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <boxGeometry args={[0.06, 0.005, 0.005]} />
-        <meshStandardMaterial color="#D97706" />
-      </mesh>
-      <mesh position={[0, 0.105, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]}>
-        <boxGeometry args={[0.06, 0.005, 0.005]} />
-        <meshStandardMaterial color="#D97706" />
-      </mesh>
-      {/* Epoxy coating */}
-      <mesh position={[0, 0.1, 0]}>
-        <sphereGeometry args={[0.06, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color="#B45309" transparent opacity={0.5} />
-      </mesh>
-      {/* Legs */}
-      <Cylinder args={[0.01, 0.01, 0.15, 4]} position={[-0.03, -0.02, 0]}>
-        <meshStandardMaterial color="#C0C0C0" metalness={0.8} />
-      </Cylinder>
-      <Cylinder args={[0.01, 0.01, 0.15, 4]} position={[0.03, -0.02, 0]}>
-        <meshStandardMaterial color="#C0C0C0" metalness={0.8} />
-      </Cylinder>
-    </group>
-  );
+function buildLDR(): THREE.Group {
+  const g = new THREE.Group();
+  const disc = cylMesh(0.06, 0.06, 0.04, 16, "#B45309", { roughness: 0.6 });
+  disc.position.set(0, 0.08, 0); g.add(disc);
+  const cross1 = boxMesh(0.06, 0.005, 0.005, "#D97706");
+  cross1.position.set(0, 0.105, 0); cross1.rotation.x = -Math.PI / 2; g.add(cross1);
+  const cross2 = boxMesh(0.06, 0.005, 0.005, "#D97706");
+  cross2.position.set(0, 0.105, 0); cross2.rotation.x = -Math.PI / 2; cross2.rotation.z = Math.PI / 2; g.add(cross2);
+  const epoxy = halfSphere(0.06, 12, 8, "#B45309", { transparent: true, opacity: 0.5 });
+  epoxy.position.set(0, 0.1, 0); g.add(epoxy);
+  const legGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.15, 4);
+  const l1 = new THREE.Mesh(legGeo, legMat); l1.position.set(-0.03, -0.02, 0); g.add(l1);
+  const l2 = new THREE.Mesh(legGeo, legMat); l2.position.set(0.03, -0.02, 0); g.add(l2);
+  return g;
 }
 
-/** Soil moisture sensor — long probe */
-function SoilMesh() {
-  return (
-    <group>
-      {/* PCB header */}
-      <RoundedBox args={[0.2, 0.15, 0.08]} radius={0.01} smoothness={2} position={[0, 0.1, 0]}>
-        <meshStandardMaterial color="#1A5C2E" roughness={0.5} />
-      </RoundedBox>
-      {/* Probe body */}
-      <mesh position={[0, 0.1, 0.2]}>
-        <boxGeometry args={[0.15, 0.08, 0.4]} />
-        <meshStandardMaterial color="#1A5C2E" roughness={0.5} />
-      </mesh>
-      {/* Two copper traces */}
-      <mesh position={[-0.04, 0.145, 0.25]}>
-        <boxGeometry args={[0.015, 0.003, 0.3]} />
-        <meshStandardMaterial color="#D4A84B" metalness={0.7} />
-      </mesh>
-      <mesh position={[0.04, 0.145, 0.25]}>
-        <boxGeometry args={[0.015, 0.003, 0.3]} />
-        <meshStandardMaterial color="#D4A84B" metalness={0.7} />
-      </mesh>
-    </group>
-  );
+function buildSoil(): THREE.Group {
+  const g = new THREE.Group();
+  const header = boxMesh(0.2, 0.15, 0.08, "#1A5C2E", { roughness: 0.5 });
+  header.position.set(0, 0.1, 0); g.add(header);
+  const probe = boxMesh(0.15, 0.08, 0.4, "#1A5C2E", { roughness: 0.5 });
+  probe.position.set(0, 0.1, 0.2); g.add(probe);
+  for (const tx of [-0.04, 0.04]) {
+    const trace = boxMesh(0.015, 0.003, 0.3, "#D4A84B", { metalness: 0.7 });
+    trace.position.set(tx, 0.145, 0.25); g.add(trace);
+  }
+  return g;
 }
 
-/** MQ-135 gas sensor */
-function GasMesh() {
-  return (
-    <group>
-      {/* PCB */}
-      <RoundedBox args={[0.35, 0.06, 0.25]} radius={0.02} smoothness={2} position={[0, 0.05, 0]}>
-        <meshStandardMaterial color="#1A5C2E" roughness={0.5} />
-      </RoundedBox>
-      {/* Sensor cylinder */}
-      <Cylinder args={[0.1, 0.1, 0.2, 16]} position={[0, 0.18, 0]}>
-        <meshStandardMaterial color="#C0C0C0" metalness={0.5} roughness={0.3} />
-      </Cylinder>
-      {/* Mesh cap */}
-      <Cylinder args={[0.1, 0.1, 0.03, 16]} position={[0, 0.3, 0]}>
-        <meshStandardMaterial color="#A0A0A0" metalness={0.4} roughness={0.5} wireframe />
-      </Cylinder>
-    </group>
-  );
+function buildGas(): THREE.Group {
+  const g = new THREE.Group();
+  const pcb = boxMesh(0.35, 0.06, 0.25, "#1A5C2E", { roughness: 0.5 });
+  pcb.position.set(0, 0.05, 0); g.add(pcb);
+  const cyl = cylMesh(0.1, 0.1, 0.2, 16, "#C0C0C0", { metalness: 0.5, roughness: 0.3 });
+  cyl.position.set(0, 0.18, 0); g.add(cyl);
+  const cap = cylMesh(0.1, 0.1, 0.03, 16, "#A0A0A0", { metalness: 0.4, roughness: 0.5, wireframe: true });
+  cap.position.set(0, 0.3, 0); g.add(cap);
+  return g;
 }
 
-/** RFID reader */
-function RFIDMesh() {
-  return (
-    <group>
-      {/* PCB */}
-      <RoundedBox args={[0.5, 0.06, 0.4]} radius={0.02} smoothness={2} position={[0, 0.05, 0]}>
-        <meshStandardMaterial color="#1E7A8C" roughness={0.5} />
-      </RoundedBox>
-      {/* Coil antenna trace (simplified as border) */}
-      <mesh position={[0, 0.082, 0]}>
-        <boxGeometry args={[0.44, 0.003, 0.34]} />
-        <meshStandardMaterial color="#D4A84B" metalness={0.6} />
-      </mesh>
-      <mesh position={[0, 0.082, 0]}>
-        <boxGeometry args={[0.38, 0.003, 0.28]} />
-        <meshStandardMaterial color="#D4A84B" metalness={0.6} />
-      </mesh>
-      {/* IC chip */}
-      <mesh position={[0.1, 0.1, 0.05]}>
-        <boxGeometry args={[0.12, 0.04, 0.12]} />
-        <meshStandardMaterial color="#17191E" />
-      </mesh>
-      {/* Label */}
-      <Text position={[0, 0.09, -0.08]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.05} color="#D4A84B" anchorX="center" anchorY="middle">
-        RC522
-      </Text>
-    </group>
-  );
+function buildRFID(): THREE.Group {
+  const g = new THREE.Group();
+  const pcb = boxMesh(0.5, 0.06, 0.4, "#1E7A8C", { roughness: 0.5 });
+  pcb.position.set(0, 0.05, 0); g.add(pcb);
+  const coil1 = boxMesh(0.44, 0.003, 0.34, "#D4A84B", { metalness: 0.6 });
+  coil1.position.set(0, 0.082, 0); g.add(coil1);
+  const coil2 = boxMesh(0.38, 0.003, 0.28, "#D4A84B", { metalness: 0.6 });
+  coil2.position.set(0, 0.082, 0); g.add(coil2);
+  const ic = boxMesh(0.12, 0.04, 0.12, "#17191E");
+  ic.position.set(0.1, 0.1, 0.05); g.add(ic);
+  const label = textSprite("RC522", 0.05, "#D4A84B");
+  label.position.set(0, 0.1, -0.08); g.add(label);
+  return g;
 }
 
-/** Rotary encoder */
-function EncoderMesh() {
-  return (
-    <group>
-      {/* Body */}
-      <RoundedBox args={[0.22, 0.12, 0.22]} radius={0.02} smoothness={2} position={[0, 0.08, 0]}>
-        <meshStandardMaterial color="#374151" roughness={0.5} metalness={0.2} />
-      </RoundedBox>
-      {/* Shaft */}
-      <Cylinder args={[0.04, 0.04, 0.2, 12]} position={[0, 0.22, 0]}>
-        <meshStandardMaterial color="#C0C0C0" metalness={0.8} roughness={0.2} />
-      </Cylinder>
-      {/* Knob */}
-      <Cylinder args={[0.07, 0.07, 0.08, 20]} position={[0, 0.35, 0]}>
-        <meshStandardMaterial color="#17191E" roughness={0.4} />
-      </Cylinder>
-      {/* Knurling (ridges) */}
-      {Array.from({ length: 12 }).map((_, i) => {
-        const a = (i / 12) * Math.PI * 2;
-        return (
-          <mesh key={i} position={[Math.cos(a) * 0.072, 0.35, Math.sin(a) * 0.072]}>
-            <boxGeometry args={[0.005, 0.07, 0.005]} />
-            <meshStandardMaterial color="#2A2A2A" />
-          </mesh>
-        );
-      })}
-    </group>
-  );
+function buildEncoder(): THREE.Group {
+  const g = new THREE.Group();
+  const body = boxMesh(0.22, 0.12, 0.22, "#374151", { roughness: 0.5, metalness: 0.2 });
+  body.position.set(0, 0.08, 0); g.add(body);
+  const shaft = cylMesh(0.04, 0.04, 0.2, 12, "#C0C0C0", { metalness: 0.8, roughness: 0.2 });
+  shaft.position.set(0, 0.22, 0); g.add(shaft);
+  const knob = cylMesh(0.07, 0.07, 0.08, 20, "#17191E", { roughness: 0.4 });
+  knob.position.set(0, 0.35, 0); g.add(knob);
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const ridge = boxMesh(0.005, 0.07, 0.005, "#2A2A2A");
+    ridge.position.set(Math.cos(a) * 0.072, 0.35, Math.sin(a) * 0.072);
+    g.add(ridge);
+  }
+  return g;
 }
 
-/** Generic fallback component */
-function GenericMesh({ label, color }: { label: string; color: string }) {
-  return (
-    <group>
-      <RoundedBox args={[0.3, 0.15, 0.2]} radius={0.02} smoothness={2} position={[0, 0.1, 0]}>
-        <meshStandardMaterial color={color} roughness={0.5} />
-      </RoundedBox>
-      <Text position={[0, 0.18, -0.102]} fontSize={0.04} color="#fff" anchorX="center" anchorY="middle">
-        {label}
-      </Text>
-    </group>
-  );
+function buildGeneric(label: string, color: string): THREE.Group {
+  const g = new THREE.Group();
+  const body = boxMesh(0.3, 0.15, 0.2, color, { roughness: 0.5 });
+  body.position.set(0, 0.1, 0); g.add(body);
+  const txt = textSprite(label, 0.04, "#ffffff");
+  txt.position.set(0, 0.18, -0.11); g.add(txt);
+  return g;
 }
 
-/** Dispatch component shape by ID */
-function ComponentShape({ componentId, shortName }: { componentId: string; shortName: string }) {
-  switch (componentId) {
-    case "led": return <LEDMesh color="#E5484D" />;
-    case "button": return <ButtonMesh />;
-    case "ultrasonic": return <UltrasonicMesh />;
-    case "dht22": return <DHT22Mesh />;
-    case "oled": return <OLEDMesh />;
-    case "buzzer": return <BuzzerMesh />;
-    case "servo": return <ServoMesh />;
-    case "pir": return <PIRMesh />;
-    case "ldr": return <LDRMesh />;
-    case "soil": return <SoilMesh />;
-    case "relay": return <RelayMesh />;
-    case "neopixel": return <NeoPixelMesh />;
-    case "pot": return <PotMesh />;
-    case "rfid": return <RFIDMesh />;
-    case "gas": return <GasMesh />;
-    case "encoder": return <EncoderMesh />;
-    default: return <GenericMesh label={shortName} color={COMP_COLORS[componentId] ?? "#6B7280"} />;
+function buildComponentShape(id: string, shortName: string): THREE.Group {
+  switch (id) {
+    case "led": return buildLED("#E5484D");
+    case "button": return buildButton();
+    case "ultrasonic": return buildUltrasonic();
+    case "dht22": return buildDHT22();
+    case "oled": return buildOLED();
+    case "buzzer": return buildBuzzer();
+    case "servo": return buildServo();
+    case "pir": return buildPIR();
+    case "ldr": return buildLDR();
+    case "soil": return buildSoil();
+    case "relay": return buildRelay();
+    case "neopixel": return buildNeoPixel();
+    case "pot": return buildPot();
+    case "rfid": return buildRFID();
+    case "gas": return buildGas();
+    case "encoder": return buildEncoder();
+    default: return buildGeneric(shortName, COMP_COLORS[id] ?? "#6B7280");
   }
 }
 
+/* ── wires ── */
 
-
-function JumperWire({ from, to, color }: { from: [number, number, number]; to: [number, number, number]; color: string }) {
-  const points = useMemo(() => {
-    const dx = Math.abs(from[0] - to[0]);
-    const dz = Math.abs(from[2] - to[2]);
-    const sag = -(0.08 + (dx + dz) * 0.04);
-    const mid: [number, number, number] = [
-      (from[0] + to[0]) / 2,
-      Math.min(from[1], to[1]) + sag,
-      (from[2] + to[2]) / 2,
-    ];
-    const curve = new THREE.QuadraticBezierCurve3(
-      new THREE.Vector3(...from),
-      new THREE.Vector3(...mid),
-      new THREE.Vector3(...to),
-    );
-    return curve.getPoints(20);
-  }, [from, to]);
-
-  return (
-    <Line
-      points={points}
-      color={color}
-      lineWidth={3}
-      opacity={0.9}
-      transparent
-    />
+function buildWire(from: THREE.Vector3, to: THREE.Vector3, color: string): THREE.Line {
+  const dx = Math.abs(from.x - to.x);
+  const dz = Math.abs(from.z - to.z);
+  const sag = -(0.08 + (dx + dz) * 0.04);
+  const mid = new THREE.Vector3(
+    (from.x + to.x) / 2,
+    Math.min(from.y, to.y) + sag,
+    (from.z + to.z) / 2,
   );
+  const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
+  const geo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(20));
+  const lineMat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9, linewidth: 2 });
+  return new THREE.Line(geo, lineMat);
 }
 
+/* ── desk ── */
 
+function buildDesk(): THREE.Group {
+  const g = new THREE.Group();
+  const surface = new THREE.Mesh(
+    new THREE.PlaneGeometry(16, 12),
+    mat("#D4A574", { roughness: 0.85, metalness: 0 }),
+  );
+  surface.rotation.x = -Math.PI / 2;
+  surface.position.set(0, -0.3, 0);
+  surface.receiveShadow = true;
+  g.add(surface);
+  const grainMat = mat("#C4955A", { roughness: 0.9 });
+  for (let i = 0; i < 8; i++) {
+    const grain = new THREE.Mesh(new THREE.PlaneGeometry(16, 0.02), grainMat);
+    grain.rotation.x = -Math.PI / 2;
+    grain.position.set(0, -0.299, -4 + i * 1.1);
+    g.add(grain);
+  }
+  return g;
+}
 
-function Scene({ result }: { result: BuildResult }) {
+/* ── full scene assembly ── */
+
+function buildFullScene(result: BuildResult): THREE.Group {
+  const root = new THREE.Group();
   const board = BOARDS[result.board];
 
-  const layout = useMemo(() => {
-    // MCU occupies the left portion
-    const mcuW = 2.2;
-    const mcuX = -BB_W / 2 + mcuW / 2 + 0.3;
+  root.add(buildBreadboard());
+  root.add(buildMCU(result));
+  root.add(buildDesk());
 
-    // Board pin positions (on the breadboard surface, near the MCU)
-    const boardPins = new Map<string, [number, number, number]>();
-    const leftPinStartX = mcuX - mcuW / 2 + 0.2;
-    const rightPinStartX = mcuX - mcuW / 2 + 0.2;
-    board.svg.left.forEach((pin, i) => {
-      boardPins.set(pin, [leftPinStartX + i * 0.13, BB_H / 2 + 0.02, -0.5]);
-    });
-    board.svg.right.forEach((pin, i) => {
-      boardPins.set(pin, [rightPinStartX + i * 0.13, BB_H / 2 + 0.02, 0.5]);
-    });
+  // Layout
+  const mcuW = 2.2;
+  const mcuX = -BB_W / 2 + mcuW / 2 + 0.3;
 
-    // Place components along the right portion of the breadboard
-    const compStartX = mcuX + mcuW / 2 + 0.5;
-    const availableW = BB_W / 2 - mcuW / 2 - 0.6;
-    const compCount = result.components.length;
-    const spacing = Math.min(0.7, availableW / Math.max(compCount, 1));
+  const boardPins = new Map<string, THREE.Vector3>();
+  const leftPinStartX = mcuX - mcuW / 2 + 0.2;
+  board.svg.left.forEach((pin, i) => {
+    boardPins.set(pin, new THREE.Vector3(leftPinStartX + i * 0.13, BB_H / 2 + 0.02, -0.5));
+  });
+  board.svg.right.forEach((pin, i) => {
+    boardPins.set(pin, new THREE.Vector3(leftPinStartX + i * 0.13, BB_H / 2 + 0.02, 0.5));
+  });
 
-    const compPositions: { pc: PlacedComponent; pos: [number, number, number]; pinPos: [number, number, number] }[] =
-      result.components.map((pc, i) => {
-        const x = compStartX + i * spacing;
-        const z = i % 2 === 0 ? -0.35 : 0.35; // alternate sides of the channel
-        const pos: [number, number, number] = [x, BB_H / 2 + 0.02, z];
-        const pinPos: [number, number, number] = [x, BB_H / 2 + 0.02, z > 0 ? z - 0.15 : z + 0.15];
-        return { pc, pos, pinPos };
-      });
+  const compStartX = mcuX + mcuW / 2 + 0.5;
+  const availableW = BB_W / 2 - mcuW / 2 - 0.6;
+  const spacing = Math.min(0.7, availableW / Math.max(result.components.length, 1));
 
-    return { boardPins, compPositions };
-  }, [board, result]);
+  result.components.forEach((pc, i) => {
+    const x = compStartX + i * spacing;
+    const z = i % 2 === 0 ? -0.35 : 0.35;
+    const pos = new THREE.Vector3(x, BB_H / 2 + 0.02, z);
+    const pinPos = new THREE.Vector3(x, BB_H / 2 + 0.02, z > 0 ? z - 0.15 : z + 0.15);
 
-  return (
-    <>
-      <Breadboard />
-      <MicrocontrollerBoard result={result} />
+    const shape = buildComponentShape(pc.component.id, pc.component.shortName);
+    shape.position.copy(pos);
+    root.add(shape);
 
-      {/* Components on the breadboard */}
-      {layout.compPositions.map(({ pc, pos }) => (
-        <group key={pc.refName} position={pos}>
-          <ComponentShape componentId={pc.component.id} shortName={pc.component.shortName} />
-          {/* Label floating above */}
-          <Text
-            position={[0, 0.5, 0]}
-            fontSize={0.06}
-            color="#17191E"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.005}
-            outlineColor="#fff"
-          >
-            {pc.refName}
-          </Text>
-        </group>
-      ))}
+    const label = textSprite(pc.refName, 0.06, "#17191E");
+    label.position.set(pos.x, pos.y + 0.5, pos.z);
+    root.add(label);
 
-      {/* Jumper wires */}
-      {layout.compPositions.flatMap(({ pc, pinPos }) =>
-        pc.pins.flatMap((pin) => {
-          if (pin.kind === "power" || pin.kind === "gnd") return [];
-          const boardPos = layout.boardPins.get(pin.boardPin);
-          if (!boardPos) return [];
-          return [
-            <JumperWire
-              key={`${pc.refName}-${pin.name}`}
-              from={boardPos}
-              to={pinPos}
-              color={pin.color}
-            />,
-          ];
-        }),
-      )}
+    // Signal wires
+    for (const pin of pc.pins) {
+      if (pin.kind === "power" || pin.kind === "gnd") {
+        const railZ = pin.kind === "power" ? -BB_D / 2 + 0.15 : -BB_D / 2 + 0.25;
+        root.add(buildWire(new THREE.Vector3(pinPos.x, BB_H / 2 + 0.02, railZ), pinPos, pin.color));
+      } else {
+        const bp = boardPins.get(pin.boardPin);
+        if (bp) root.add(buildWire(bp, pinPos, pin.color));
+      }
+    }
+  });
 
-      {/* Power wires (red & black running along power rails) */}
-      {layout.compPositions.flatMap(({ pc, pinPos }) =>
-        pc.pins.flatMap((pin) => {
-          if (pin.kind !== "power" && pin.kind !== "gnd") return [];
-          const railZ = pin.kind === "power" ? -BB_D / 2 + 0.15 : -BB_D / 2 + 0.25;
-          const railPos: [number, number, number] = [pinPos[0], BB_H / 2 + 0.02, railZ];
-          return [
-            <JumperWire
-              key={`${pc.refName}-${pin.name}`}
-              from={railPos}
-              to={pinPos}
-              color={pin.color}
-            />,
-          ];
-        }),
-      )}
-    </>
-  );
+  return root;
 }
 
-
-
-function Desk() {
-  return (
-    <group>
-      {/* Wood desk surface */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.3, 0]} receiveShadow>
-        <planeGeometry args={[16, 12]} />
-        <meshStandardMaterial color="#D4A574" roughness={0.85} metalness={0} />
-      </mesh>
-      {/* Subtle wood grain lines */}
-      {Array.from({ length: 8 }).map((_, i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.299, -4 + i * 1.1]}>
-          <planeGeometry args={[16, 0.02]} />
-          <meshStandardMaterial color="#C4955A" roughness={0.9} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-
+/* ── React component ── */
 
 export function Viewer3D({ result }: { result: BuildResult }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(el.clientWidth, el.clientHeight);
+    renderer.shadowMap.enabled = true;
+    el.insertBefore(renderer.domElement, el.firstChild);
+
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(38, el.clientWidth / el.clientHeight, 0.1, 100);
+    camera.position.set(3.5, 3, 3.5);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.minDistance = 1.5;
+    controls.maxDistance = 12;
+    controls.maxPolarAngle = Math.PI / 2 - 0.05;
+    controls.target.set(0, 0.2, 0);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dir1 = new THREE.DirectionalLight(0xffffff, 1.2);
+    dir1.position.set(6, 8, 4);
+    dir1.castShadow = true;
+    dir1.shadow.mapSize.set(2048, 2048);
+    scene.add(dir1);
+    const dir2 = new THREE.DirectionalLight(0xffffff, 0.3);
+    dir2.position.set(-3, 5, -3);
+    scene.add(dir2);
+    const point = new THREE.PointLight(0xffffff, 0.3);
+    point.position.set(0, 4, 0);
+    scene.add(point);
+
+    scene.add(buildFullScene(result));
+
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth, h = el.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    });
+    ro.observe(el);
+
+    let raf = 0;
+    const animate = () => { raf = requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); };
+    animate();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      controls.dispose();
+      renderer.dispose();
+      if (renderer.domElement.parentNode === el) el.removeChild(renderer.domElement);
+    };
+  }, [result]);
+
   return (
-    <div className="relative h-full w-full" style={{ background: "linear-gradient(180deg, #E8E4DC 0%, #D5CFC5 100%)" }}>
-      <Canvas
-        camera={{ position: [3.5, 3, 3.5], fov: 38 }}
-        shadows
-        gl={{ antialias: true }}
-      >
-        <ambientLight intensity={0.5} />
-        <directionalLight
-          position={[6, 8, 4]}
-          intensity={1.2}
-          castShadow
-          shadow-mapSize={2048}
-        />
-        <directionalLight position={[-3, 5, -3]} intensity={0.3} />
-        <pointLight position={[0, 4, 0]} intensity={0.3} />
-
-        <Scene result={result} />
-        <Desk />
-
-        <OrbitControls
-          enableDamping
-          dampingFactor={0.08}
-          minDistance={1.5}
-          maxDistance={12}
-          maxPolarAngle={Math.PI / 2 - 0.05}
-          target={[0, 0.2, 0]}
-        />
-      </Canvas>
-
-      {/* Overlay info */}
-      <div className="absolute left-4 top-4 rounded-lg border border-line bg-white/90 px-3 py-2 backdrop-blur-sm" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+    <div ref={containerRef} className="relative h-full w-full" style={{ background: "linear-gradient(180deg, #E8E4DC 0%, #D5CFC5 100%)" }}>
+      <div className="pointer-events-none absolute left-4 top-4 rounded-lg border border-line bg-white/90 px-3 py-2 backdrop-blur-sm" style={{ fontFamily: "JetBrains Mono, monospace" }}>
         <p className="text-xs font-bold text-ink">{result.name}</p>
         <p className="text-[10px] text-muted">
           {result.boardLabel} · {result.components.length} components · {result.wires.length} wires
         </p>
       </div>
-
-      <div className="absolute bottom-4 right-4 rounded-lg border border-line bg-white/90 px-3 py-2 backdrop-blur-sm">
+      <div className="pointer-events-none absolute bottom-4 right-4 rounded-lg border border-line bg-white/90 px-3 py-2 backdrop-blur-sm">
         <p className="text-[10px] text-muted" style={{ fontFamily: "JetBrains Mono, monospace" }}>
           Drag to orbit · Scroll to zoom
         </p>

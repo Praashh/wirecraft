@@ -15,6 +15,7 @@ import { WiringDiagram } from "./WiringDiagram";
 import { CodeView } from "./CodeView";
 import { PartsList } from "./PartsList";
 import { StepsView } from "./StepsView";
+import { Viewer3DErrorBoundary } from "./Viewer3DErrorBoundary";
 
 const Viewer3D = dynamic(() => import("./Viewer3D").then((m) => m.Viewer3D), {
   ssr: false,
@@ -352,7 +353,9 @@ export function Workbench() {
             ) : tab === "wiring" ? (
               <WiringDiagram result={result} />
             ) : tab === "3d" ? (
-              <Viewer3D result={result} />
+              <Viewer3DErrorBoundary>
+                <Viewer3D result={result} />
+              </Viewer3DErrorBoundary>
             ) : tab === "code" ? (
               <CodeView result={result} />
             ) : tab === "parts" ? (
