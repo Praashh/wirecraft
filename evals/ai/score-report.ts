@@ -21,7 +21,7 @@ class ScoreReport {
 
         console.log("\n");
         console.log("=========================================================================");
-        console.log("                     📊 WIRECRAFT AI EVAL SCORECARD                      ");
+        console.log("                        WIRECRAFT AI EVAL SCORECARD                      ");
         console.log("=========================================================================");
 
         const rows = this.records.map((r) => ({
@@ -39,7 +39,7 @@ class ScoreReport {
         );
 
         console.log("-------------------------------------------------------------------------");
-        console.log(`  OVERALL AVERAGE SCORE: ${avgScore}%  ${avgScore >= 70 ? "✅ PASS" : "❌ FAIL"}`);
+        console.log(`  OVERALL AVERAGE SCORE: ${avgScore}%  ${avgScore >= 70 ? "PASS" : "FAIL"}`);
         console.log("=========================================================================\n");
     }
 }
