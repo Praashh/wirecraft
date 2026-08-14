@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Plant Waterer",
+    "prompt": "I want to water my plants automatically when the soil is dry",
+    "expected": {
+      "boards": ["esp32", "arduino-uno"],
+      "mustInclude": ["soil", "relay"],
+      "shouldInclude": ["oled", "led"],
+      "mustHaveBehaviors": true,
+      "minComponents": 2,
+      "maxComponents": 5
+    }
+  },
+  {
+    "name": "Parking Sensor",
+    "prompt": "Build a reversing parking sensor for my car that beeps when I get close",
+    "expected": {
+      "boards": ["arduino-uno", "esp32", "pico"],
+      "mustInclude": ["ultrasonic", "buzzer"],
+      "shouldInclude": ["led"],
+      "mustHaveBehaviors": true,
+      "minComponents": 2,
+      "maxComponents": 4
+    }
+  },
+  {
+    "name": "Weather Station",
+    "prompt": "Create an outdoor climate monitor to track temperature and humidity",
+    "expected": {
+      "boards": ["esp32", "pico"],
+      "mustInclude": ["dht22"],
+      "shouldInclude": ["oled"],
+      "mustHaveBehaviors": false,
+      "minComponents": 1,
+      "maxComponents": 4
+    }
+  },
+  {
+    "name": "Night Light",
+    "prompt": "An automatic ambient room lamp that turns on when the room gets dark",
+    "expected": {
+      "boards": ["esp32", "arduino-uno", "pico"],
+      "mustInclude": ["ldr", "neopixel"],
+      "shouldInclude": [],
+      "mustHaveBehaviors": true,
+      "minComponents": 2,
+      "maxComponents": 4
+    }
+  }
+]

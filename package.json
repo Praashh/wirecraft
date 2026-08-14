@@ -13,6 +13,7 @@
     "postinstall": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:ai": "vitest run evals/ai",
     "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
