@@ -109,7 +109,7 @@ export async function aiParsePrompt(
     : prompt;
 
   const result = await provider.chatCompletion({
-    model: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+    model: process.env.GROQ_MODEL ?? "openai/gpt-oss-120b",
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: userMessage },
@@ -134,7 +134,7 @@ export async function aiAssistantReply(
   const provider = getLLMProvider();
 
   const completion = await provider.chatCompletion({
-    model: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+    model: process.env.GROQ_MODEL ?? "openai/gpt-oss-120b",
     messages: [
       {
         role: "user",
