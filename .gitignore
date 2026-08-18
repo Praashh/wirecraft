@@ -6,3 +6,5 @@ prisma/dev.db-journal
 
 # generated prisma client
 generated/
+jobs
+jobs/*

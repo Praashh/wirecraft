@@ -1,0 +1,9 @@
+schema_version = "1.4"
+
+[task]
+name = "wirecraft/add-catalog-component"
+difficulty = "easy"
+tags = ["catalog", "component", "sensor"]
+
+[environment]
+docker_image = "wirecraft-base:latest"

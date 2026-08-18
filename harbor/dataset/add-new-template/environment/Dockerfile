@@ -1,0 +1,1 @@
+FROM wirecraft-base:latest
