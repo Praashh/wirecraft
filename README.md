@@ -99,11 +99,9 @@ harbor run --path ./harbor/dataset --agent claude-code
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | ✅ | SQLite path (`file:./dev.db`) or PostgreSQL URL |
-| `NEXTAUTH_SECRET` | ✅ | Random secret string (≥32 chars) |
-| `NEXTAUTH_URL` | ✅ | Base URL (e.g. `http://localhost:3000`) |
-| `GROQ_API_KEY` | ✅ | Groq API key for LLM inference |
-| `OLLAMA_URL` | ❌ | Ollama base URL for local LLM |
-| `OLLAMA_MODEL` | ❌ | Ollama model name |
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL URL |
+| `NEXTAUTH_SECRET` | Random secret string (≥32 chars) |
+| `NEXTAUTH_URL` | Base URL (e.g. `http://localhost:3000`) |
+| `GROQ_API_KEY` | Groq API key for LLM inference |
